@@ -1,0 +1,49 @@
+# ─────────────────────────────────────────────
+# Aegis-Mesh — .gitignore
+# ─────────────────────────────────────────────
+
+# ── Build outputs ────────────────────────────
+/build/
+/.gradle/
+out/
+
+# ── Gradle wrapper cache ──────────────────────
+.gradle/
+
+# ── IDE files ────────────────────────────────
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.classpath
+*.project
+.settings/
+
+# ── Secrets & Certificates ───────────────────
+# NEVER commit private keys or PKCS12 keystores
+*.key
+*.p12
+*.pem
+*.jks
+src/main/resources/certs/
+
+# ── k6 results output ────────────────────────
+results.json
+results.csv
+*.k6log
+
+# ── OS files ─────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs ─────────────────────────────────────
+*.log
+logs/
+
+# ── Spring Boot devtools restart ──────────────
+.spring-boot-devtools.properties
+
+# ── Docs ──────────────────────────────────────
+docs/

@@ -1,0 +1,44 @@
+server:
+  port: 8443
+  ssl:
+    enabled: true
+    client-auth: need
+    key-store: classpath:certs/gateway-keystore.p12
+    key-store-password: changeit
+    key-store-type: PKCS12
+    trust-store: classpath:certs/gateway-truststore.p12
+    trust-store-password: changeit
+    trust-store-type: PKCS12
+
+spring:
+  application:
+    name: aegis-gateway
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  cloud:
+    gateway:
+      routes:
+        - id: mock-downstream
+          uri: http://localhost:8080
+          predicates:
+            - Path=/**
+          filters:
+            - name: ContextExtraction
+            - name: PolicyEnforcement
+
+gateway:
+  security:
+    secret-key: "YourSuperSecretKeyForHmacGenerationMakeItLongAndSecure"
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,health,info
+  metrics:
+    tags:
+      application: aegis-gateway
