@@ -1,10 +1,11 @@
-# ─────────────────────────────────────────────
+﻿# ─────────────────────────────────────────────
 # Aegis-Mesh — .gitignore
 # ─────────────────────────────────────────────
 
 # ── Build outputs ────────────────────────────
 /build/
 /.gradle/
+/bin/
 out/
 
 # ── Gradle wrapper cache ──────────────────────
@@ -32,6 +33,10 @@ src/main/resources/certs/
 results.json
 results.csv
 *.k6log
+/result/
+
+# ── Temporary Benchmark Scripts ──────────────
+run_pipeline.ps1
 
 # ── OS files ─────────────────────────────────
 .DS_Store
