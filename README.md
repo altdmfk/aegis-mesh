@@ -289,3 +289,14 @@ k6 run benchmark-suite.js
 | Testing | JUnit 5, BlockHound, Testcontainers, StepVerifier |
 | Load Test | k6 (mTLS, Dynamic JWT, 4-Stage Pipeline) |
 | Build | Gradle 8.6 + Java Toolchain |
+
+## 🖥️ 실시간 관제 대시보드 (Portfolio Showcase)
+
+면접 및 포트폴리오 데모를 위해 **Single-Flight 패턴과 L1/L2 계층형 캐시의 다운스트림 보호 효과**를 시각적으로 증명하는 React 기반 실시간 대시보드를 제공합니다. (`/dashboard` 폴더 내 포함)
+
+### 대시보드 아키텍처 및 특징
+
+*   **Front-end:** React (Vite) + Tailwind CSS (Light Mode) + Recharts 기반의 모던 One-Page SaaS UI
+*   **Back-end Data Feed:** Spring Boot Actuator 및 Micrometer 메트릭을 `Flux<ServerSentEvent<MetricDto>>`를 통해 1초 단위로 SSE(Server-Sent Events) 스트리밍
+*   **관제 시나리오 (Cache Stampede 방어):** 
+    게이트웨이에 폭발적인 트래픽(예: 500 RPS)이 유입되는 상황에서도, L1 미스 시 동작하는 `ConcurrentHashMap.computeIfAbsent` Single-Flight 로직이 병발 요청을 단 1개의 I/O 스트림으로 병합합니다. 대시보드의 메인 차트를 통해 게이트웨이 인입 트래픽(수직 상승)과 실제 백엔드 도달 트래픽(1 RPS로 수평 유지)의 격차를 실시간으로 확인할 수 있습니다.
