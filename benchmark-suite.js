@@ -35,6 +35,43 @@ function generateJWT() {
 
 const JWT_TOKEN = __ENV.JWT_TOKEN || generateJWT();
 
+let allScenarios = {
+    scenario_a_l1_warm: {
+        executor: 'constant-vus',
+        vus: 20,
+        duration: '30s',
+        exec: 'warmPath',
+    },
+    scenario_b_l2_cold: {
+        executor: 'constant-vus',
+        vus: 20,
+        duration: '30s',
+        exec: 'coldPath',
+        startTime: '35s', // Run sequentially after Scenario A
+    },
+    scenario_c_stress: {
+        executor: 'ramping-vus',
+        startVUs: 0,
+        stages: [
+            { duration: '30s', target: 200 },
+            { duration: '1m', target: 500 },  // Ramp to 500 VUs
+            { duration: '30s', target: 0 },   // Cool down
+        ],
+        exec: 'stressPath',
+        startTime: '70s', // Run sequentially after Scenario B
+    },
+};
+
+if (__ENV.TARGET_SCENARIO) {
+    const target = __ENV.TARGET_SCENARIO;
+    const filtered = {};
+    if (allScenarios[target]) {
+        filtered[target] = allScenarios[target];
+        delete filtered[target].startTime; // Run immediately
+    }
+    allScenarios = filtered;
+}
+
 export const options = {
     insecureSkipTLSVerify: true, // Bypass CA verification as we are using local self-signed Root CA
     tlsAuth: [
@@ -44,32 +81,7 @@ export const options = {
             key: open(__ENV.CLIENT_KEY_PATH || './src/main/resources/certs/client.key'),
         },
     ],
-    scenarios: {
-        scenario_a_l1_warm: {
-            executor: 'constant-vus',
-            vus: 20,
-            duration: '30s',
-            exec: 'warmPath',
-        },
-        scenario_b_l2_cold: {
-            executor: 'constant-vus',
-            vus: 20,
-            duration: '30s',
-            exec: 'coldPath',
-            startTime: '35s', // Run sequentially after Scenario A
-        },
-        scenario_c_stress: {
-            executor: 'ramping-vus',
-            startVUs: 0,
-            stages: [
-                { duration: '30s', target: 200 },
-                { duration: '1m', target: 500 },  // Ramp to 500 VUs
-                { duration: '30s', target: 0 },   // Cool down
-            ],
-            exec: 'stressPath',
-            startTime: '70s', // Run sequentially after Scenario B
-        },
-    },
+    scenarios: allScenarios,
     thresholds: {
         'custom_req_duration': ['p(50)<5', 'p(90)<15', 'p(95)<30', 'p(99)<100'],
     },

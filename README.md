@@ -92,44 +92,31 @@ sequenceDiagram
 ## ⚡ 성능 벤치마크 (k6 실측 결과)
 
 > **환경:** Local mTLS + Docker Redis · SPIFFE SAN 클라이언트 인증서 · JWT HS256 동적 서명  
-> **구성:** 3-Scenario Sequential Suite (Scenario A → B → C)
+> **구성:** 4-Stage 연속 부하 테스트 파이프라인 (A-Cold → A-Warm → B-Warm → C-Stress)
 
-### 결과 매트릭스
-
-> **환경:** Local mTLS + Docker Redis · SPIFFE SAN 클라이언트 인증서 · k6 동적 HS256 JWT 서명  
-> **실행:** 3-Scenario Sequential Suite — 총 **3분 10초**, **253,741 요청**, **100% 성공 (0 실패)**
-
-### 전체 집계 요약 (3-Scenario Combined)
+### 전체 집계 요약 (4-Scenario Combined)
 
 | 항목 | 실측값 |
 |---|---|
-| 총 요청 수 | **253,741** |
-| 실행 시간 | **3m 10s** |
-| 평균 RPS | **1,335 req/s** |
-| 200 OK 비율 | **100.00%** (253,741 / 253,741) |
-| 403 Forbidden | **0.00%** |
-| 연결 오류 | **0.00%** |
-| 지연 avg | 89.52ms |
-| 지연 median (P50) | **60.22ms** |
-| 지연 P90 | 223.48ms |
-| 지연 P95 | 304.96ms |
-| 지연 max | 5.11s *(500 VU 피크 구간)* |
-| 수신 데이터 | 336 MB (1.8 MB/s) |
-| 송신 데이터 | 95 MB (500 kB/s) |
+| 총 요청 수 | **319,045** |
+| 파이프라인 총 실행 시간 | **3분 30초** |
+| 평균 RPS | **1,519 req/s** |
+| 200 OK 비율 | **100.00%** (319,045 / 319,045) |
+| 403 / HTTP 에러 | **0.00%** |
+| 소켓 연결 오류 | **0.00%** |
 
-> **참고:** avg 89ms / P95 305ms는 Scenario C(0→500 VU 급격한 램프업) 구간이 전체 분포를 끌어올린 결과입니다.  
-> mTLS 핸드셰이크 + Dual-Identity 검증 + In-Process 정책 엔진을 포함한 **종단 간(End-to-End)** 수치입니다.
+### 시나리오별 지연 시간(Latency) 상세 프로파일
 
-### 시나리오별 분석
+| 시나리오 | 런타임 상태 | P50 (Med) | P90 | P95 | P99 | Max |
+|---|---|---|---|---|---|---|
+| **A-Cold** (20 VU) | 기동 직후 (L1 Hit) | 4.47ms | 6.75ms | 8.23ms | 14.35ms | 245.94ms |
+| **A-Warm** (20 VU) | JIT 웜업 완료 (L1 Hit) | **4.33ms** | **6.20ms** | **7.09ms** | **9.67ms** | **37.28ms** |
+| **B-Warm** (20 VU) | 웜업 완료 (L1 Miss/L2 Redis) | 5.38ms | 8.32ms | 10.59ms | 19.08ms | 54.87ms |
+| **C-Stress** (500 VU) | 피크 혼합 부하 (80% L1 Miss) | 86.76ms | 216.65ms | 288.30ms | 353.23ms | 4.59s |
 
-| 시나리오 | VUs | 특성 | 지연 특성 | 성공률 | 완주 여부 |
-|---|---|---|---|---|---|
-| **A — L1 Warm Cache** | 20 | Caffeine In-Memory Hit | P50 **~1.05ms**, P99 **~10.74ms** | **100%** | ✅ |
-| **B — L2 Cold Cache** | 20 | Random URL → Redis 조회 (L1 Miss) | P50 더 높음, 네트워크 RTT 포함 | **100%** | ✅ |
-| **C — Stress (500 VU)** | 0→500→0 | Mixed Warm/Cold (80% Cold) | 램프업 피크 max **5.11s**, 안정 구간 수렴 | **100%** | ✅ |
-
-> Scenario A의 단독 레이턴시(P50 ~1ms)는 L1 Caffeine 캐시 적중 시 **추가 네트워크 홉이 완전 제거**됨을 실증합니다.  
-> Scenario C에서 500 VU 피크에서도 **연결 드랍(connection error) 0건**으로 Netty EventLoop의 C10K 수준 동시성을 확인했습니다.
+> **분석 포인트 1 (계층형 캐시 효율성):** A-Warm과 B-Warm의 P50 지연 차이는 불과 **1.05ms**입니다. 이는 완전 비차단 리액티브 Redis 드라이버 덕분이며, 동시에 L1 Caffeine 적중 시 네트워크 RTT가 완전히 0으로 수렴함을 보여줍니다.  
+> **분석 포인트 2 (JIT 컴파일 수렴):** A-Cold의 최대 지연 245ms가 A-Warm 구간에서 37ms로 급감(-84.8%)하는 JVM 꼬리 지연 수렴 특성을 실증했습니다.  
+> **분석 포인트 3 (시스템 복원력):** C-Stress 시나리오의 500 VU는 단일 코어 환경에서 OS 레벨의 극단적 큐잉(Max 4.59s)을 유발했음에도 불구하고, 단 한 건의 연결 드랍(0%)이나 에러 없이 204,375건의 요청을 모두 소화하여 Netty 엣지 트리거의 강력한 이벤트 루프 복원력을 입증했습니다.
 
 ### 핵심 Prometheus 지표
 
@@ -300,5 +287,5 @@ k6 run benchmark-suite.js
 | Security | Nimbus-JOSE-JWT, BouncyCastle, mTLS SPIFFE |
 | Observability | Micrometer + Prometheus (포트 격리 8081) |
 | Testing | JUnit 5, BlockHound, Testcontainers, StepVerifier |
-| Load Test | k6 (mTLS, Dynamic JWT, 3-Scenario Suite) |
+| Load Test | k6 (mTLS, Dynamic JWT, 4-Stage Pipeline) |
 | Build | Gradle 8.6 + Java Toolchain |
