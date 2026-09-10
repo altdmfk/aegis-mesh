@@ -300,3 +300,20 @@ k6 run benchmark-suite.js
 *   **Back-end Data Feed:** Spring Boot Actuator 및 Micrometer 메트릭을 `Flux<ServerSentEvent<MetricDto>>`를 통해 1초 단위로 SSE(Server-Sent Events) 스트리밍
 *   **관제 시나리오 (Cache Stampede 방어):** 
     게이트웨이에 폭발적인 트래픽(예: 500 RPS)이 유입되는 상황에서도, L1 미스 시 동작하는 `ConcurrentHashMap.computeIfAbsent` Single-Flight 로직이 병발 요청을 단 1개의 I/O 스트림으로 병합합니다. 대시보드의 메인 차트를 통해 게이트웨이 인입 트래픽(수직 상승)과 실제 백엔드 도달 트래픽(1 RPS로 수평 유지)의 격차를 실시간으로 확인할 수 있습니다.
+
+### 대시보드 실행 방법
+
+```bash
+# 1. dashboard 디렉토리 이동
+cd dashboard
+
+# 2. 의존성 패키지 설치
+npm install
+
+# 3. 로컬 개발 서버 실행
+npm run dev
+```
+
+* 브라우저에서 `http://localhost:5173` 접속
+* **단독 실행 (Mock 모드):** 백엔드 게이트웨이 미실행 상태에서도 내장된 시뮬레이션 데이터를 통해 1초 단위 실시간 차트 동작 확인 가능
+* **Live 연동 (SSE 모드):** 게이트웨이 실행(`.\gradlew.bat bootRun`) 후 좌측 하단 `Live SSE 연동` 스위치를 켜면 실제 Actuator 지표 실시간 수신
