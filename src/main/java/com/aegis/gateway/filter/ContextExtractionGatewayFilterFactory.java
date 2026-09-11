@@ -4,8 +4,9 @@ import com.aegis.gateway.model.SecurityContextExchange;
 import com.aegis.gateway.model.SpiffeIdentity;
 import com.aegis.gateway.model.UserTokenIdentity;
 import com.aegis.gateway.util.ErrorResponseUtil;
-import com.nimbusds.jwt.JWT;
-import com.nimbusds.jwt.JWTParser;
+import com.nimbusds.jose.JWSVerifier;
+import com.nimbusds.jose.crypto.MACVerifier;
+import com.nimbusds.jwt.SignedJWT;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
@@ -28,9 +29,12 @@ public class ContextExtractionGatewayFilterFactory extends AbstractGatewayFilter
     private static final Pattern SPIFFE_PATTERN = Pattern.compile("^spiffe://[^/]+/ns/([^/]+)/sa/([^/]+)$");
     private final MeterRegistry meterRegistry;
 
-    public ContextExtractionGatewayFilterFactory(MeterRegistry meterRegistry) {
+    private final String secretKey;
+
+    public ContextExtractionGatewayFilterFactory(MeterRegistry meterRegistry, @org.springframework.beans.factory.annotation.Value("${gateway.security.secret-key}") String secretKey) {
         super(Config.class);
         this.meterRegistry = meterRegistry;
+        this.secretKey = secretKey;
     }
 
     @Override
@@ -53,8 +57,15 @@ public class ContextExtractionGatewayFilterFactory extends AbstractGatewayFilter
             String token = authHeader.substring(7);
             UserTokenIdentity userIdentity;
             try {
-                JWT jwt = JWTParser.parse(token);
-                java.util.Date exp = jwt.getJWTClaimsSet().getExpirationTime();
+                SignedJWT signedJWT = SignedJWT.parse(token);
+                JWSVerifier verifier = new MACVerifier(secretKey.getBytes());
+                
+                if (!signedJWT.verify(verifier)) {
+                    meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_signature").increment();
+                    return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Invalid Token Signature");
+                }
+                
+                java.util.Date exp = signedJWT.getJWTClaimsSet().getExpirationTime();
                 if (exp != null) {
                     long now = System.currentTimeMillis();
                     long maxClockSkewMs = 60_000L;
@@ -64,12 +75,12 @@ public class ContextExtractionGatewayFilterFactory extends AbstractGatewayFilter
                     }
                 }
 
-                String sub = jwt.getJWTClaimsSet().getSubject();
+                String sub = signedJWT.getJWTClaimsSet().getSubject();
                 if (sub == null) {
                     meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_jwt").increment();
                     return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Missing User Subject in Token");
                 }
-                String jti = jwt.getJWTClaimsSet().getJWTID();
+                String jti = signedJWT.getJWTClaimsSet().getJWTID();
                 userIdentity = new UserTokenIdentity(sub, jti, List.of());
             } catch (Exception e) {
                 meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_jwt").increment();

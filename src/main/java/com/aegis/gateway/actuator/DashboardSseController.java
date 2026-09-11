@@ -1,4 +1,4 @@
-﻿package com.aegis.gateway.actuator;
+package com.aegis.gateway.actuator;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.http.codec.ServerSentEvent;

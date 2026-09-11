@@ -5,7 +5,7 @@ import com.aegis.gateway.model.SecurityContextExchange;
 import com.aegis.gateway.model.SpiffeIdentity;
 import com.aegis.gateway.model.UserTokenIdentity;
 import com.nimbusds.jwt.JWTClaimsSet;
-import com.nimbusds.jwt.PlainJWT;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -29,7 +29,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 class ContextExtractionGatewayFilterFactoryTest extends BaseBlockHoundTest {
 
     private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
-    private final ContextExtractionGatewayFilterFactory factory = new ContextExtractionGatewayFilterFactory(meterRegistry);
+    private final ContextExtractionGatewayFilterFactory factory = new ContextExtractionGatewayFilterFactory(meterRegistry, "YourSuperSecretKeyForHmacGenerationMakeItLongAndSecure");
     private final GatewayFilter filter = factory.apply(new ContextExtractionGatewayFilterFactory.Config());
 
     private SslInfo mockSslInfo(String spiffeUri) throws Exception {
@@ -96,8 +96,12 @@ class ContextExtractionGatewayFilterFactoryTest extends BaseBlockHoundTest {
     @Test
     void testValidContextExtraction_Success() throws Exception {
         SslInfo sslInfo = mockSslInfo("spiffe://cluster.local/ns/default/sa/service-a");
-        PlainJWT plainJWT = new PlainJWT(new JWTClaimsSet.Builder().subject("user123").build());
-        String validToken = plainJWT.serialize();
+        
+        com.nimbusds.jose.JWSHeader header = new com.nimbusds.jose.JWSHeader(com.nimbusds.jose.JWSAlgorithm.HS256);
+        JWTClaimsSet claimsSet = new JWTClaimsSet.Builder().subject("user123").build();
+        com.nimbusds.jwt.SignedJWT signedJWT = new com.nimbusds.jwt.SignedJWT(header, claimsSet);
+        signedJWT.sign(new com.nimbusds.jose.crypto.MACSigner("YourSuperSecretKeyForHmacGenerationMakeItLongAndSecure".getBytes()));
+        String validToken = signedJWT.serialize();
 
         var builder = MockServerHttpRequest.get("/api");
         builder.sslInfo(sslInfo);
@@ -117,5 +121,37 @@ class ContextExtractionGatewayFilterFactoryTest extends BaseBlockHoundTest {
 
         StepVerifier.create(filter.filter(exchange, chain))
                 .verifyComplete();
+    }
+
+    @Test
+    void testTamperedToken_ReturnsUnauthorized() throws Exception {
+        SslInfo sslInfo = mockSslInfo("spiffe://cluster.local/ns/default/sa/service-a");
+        
+        com.nimbusds.jose.JWSHeader header = new com.nimbusds.jose.JWSHeader(com.nimbusds.jose.JWSAlgorithm.HS256);
+        JWTClaimsSet claimsSet = new JWTClaimsSet.Builder().subject("user123").build();
+        com.nimbusds.jwt.SignedJWT signedJWT = new com.nimbusds.jwt.SignedJWT(header, claimsSet);
+        signedJWT.sign(new com.nimbusds.jose.crypto.MACSigner("YourSuperSecretKeyForHmacGenerationMakeItLongAndSecure".getBytes()));
+        
+        // Tamper with the token
+        String validToken = signedJWT.serialize();
+        String[] parts = validToken.split("\\.");
+        // Change the payload to encode subject "admin"
+        String tamperedPayload = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString("{\"sub\":\"admin\"}".getBytes());
+        String tamperedToken = parts[0] + "." + tamperedPayload + "." + parts[2];
+
+        var builder = MockServerHttpRequest.get("/api");
+        builder.sslInfo(sslInfo);
+        MockServerHttpRequest request = builder
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tamperedToken)
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+        GatewayFilterChain chain = mock(GatewayFilterChain.class);
+
+        Mono<Void> result = filter.filter(exchange, chain);
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
     }
 }

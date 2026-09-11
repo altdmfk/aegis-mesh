@@ -69,19 +69,36 @@ class CacheCoherencyIntegrationTest extends BaseBlockHoundTest {
 
     @Test
     void testRedisPubSubInvalidatesL1Cache() throws InterruptedException {
-        String testKey = "spiffe://test:user:resource:read";
+        String rawKey = "spiffe://test:user:resource:read";
+        String hashedKey = sha256Hex(rawKey);
         
         // 1. Populate L1 Cache
-        l1Cache.put(testKey, PolicyDecision.ALLOW);
-        assertEquals(PolicyDecision.ALLOW, l1Cache.getIfPresent(testKey));
+        l1Cache.put(hashedKey, PolicyDecision.ALLOW);
+        assertEquals(PolicyDecision.ALLOW, l1Cache.getIfPresent(hashedKey));
 
         // 2. Publish invalidation event
-        StepVerifier.create(redisTemplate.convertAndSend("policy-invalidation", testKey))
+        StepVerifier.create(redisTemplate.convertAndSend("policy-invalidation", hashedKey))
                 .expectNextCount(1)
                 .verifyComplete();
 
         // 3. Assert eviction within 100ms
         Thread.sleep(100); // Wait for async propagation
-        assertNull(l1Cache.getIfPresent(testKey), "L1 cache should be evicted");
+        assertNull(l1Cache.getIfPresent(hashedKey), "L1 cache should be evicted");
+    }
+
+    private static String sha256Hex(String input) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hash) {
+                String h = Integer.toHexString(0xff & b);
+                if (h.length() == 1) sb.append('0');
+                sb.append(h);
+            }
+            return sb.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not supported", e);
+        }
     }
 }

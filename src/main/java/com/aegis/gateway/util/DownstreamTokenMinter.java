@@ -49,7 +49,7 @@ public class DownstreamTokenMinter {
             SignedJWT signedJWT = new SignedJWT(header, claimsSet);
             signedJWT.sign(currentKey.signer());
             
-            return currentKey.kid() + ":" + signedJWT.serialize(); // Prefix format as requested
+            return signedJWT.serialize(); // standard JWT, kid is in the header
         } catch (Exception e) {
             throw new RuntimeException("Failed to mint internal token", e);
         }

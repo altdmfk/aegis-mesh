@@ -21,10 +21,11 @@ public class PolicyEngine {
     private final ConcurrentMap<String, Mono<PolicyDecision>> inFlight = new ConcurrentHashMap<>();
 
     public Mono<PolicyDecision> evaluate(CompositePolicyKey key) {
-        String keyStr = key.toString();
+        String hashedKey = key.toHashedKey();
+        String rawKey = key.toString();
         
         return Mono.fromCallable(() -> {
-                    PolicyDecision decision = l1PolicyCache.getIfPresent(keyStr);
+                    PolicyDecision decision = l1PolicyCache.getIfPresent(hashedKey);
                     if (decision != null) {
                         meterRegistry.counter("aegis.policy.cache.l1.hits").increment();
                     }
@@ -33,15 +34,15 @@ public class PolicyEngine {
                 .switchIfEmpty(Mono.defer(() -> {
                     meterRegistry.counter("aegis.policy.cache.l1.misses").increment();
                     boolean[] deduplicated = { true };
-                    Mono<PolicyDecision> result = inFlight.computeIfAbsent(keyStr, k -> {
+                    Mono<PolicyDecision> result = inFlight.computeIfAbsent(hashedKey, k -> {
                         deduplicated[0] = false;
-                        return l2CacheService.getPolicyDecision(k)
-                            .doOnNext(decision -> l1PolicyCache.put(k, decision))
+                        return l2CacheService.getPolicyDecision(rawKey)
+                            .doOnNext(decision -> l1PolicyCache.put(hashedKey, decision))
                             .transformDeferred(mono -> Mono.defer(() -> {
                                 Timer.Sample sample = Timer.start(meterRegistry);
                                 return mono.doFinally(signal -> sample.stop(meterRegistry.timer("aegis.policy.cache.l2.latency")));
                             }))
-                            .doFinally(signal -> inFlight.remove(k))
+                            .doFinally(signal -> inFlight.remove(hashedKey))
                             .cache(); // Coalesce concurrent subscribers
                     });
                     

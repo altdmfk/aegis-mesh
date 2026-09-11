@@ -31,7 +31,13 @@ spring:
 gateway:
   security:
     secret-key: "YourSuperSecretKeyForHmacGenerationMakeItLongAndSecure"
-
+    # Comma-separated raw CompositePolicyKey strings (spiffeId:userId:resource:action)
+    # that are allowed when Redis has no entry (static fallback allowlist).
+    # Used for benchmark scenarios. In production, populate Redis via setPolicyDecision().
+    policy-allowlist: >-
+      spiffe://cluster.local/ns/default/sa/k6-client:benchmark-user:/api/resource/static-warm:GET,
+      spiffe://cluster.local/ns/default/sa/k6-client:benchmark-user:/api/resource/stress-warm:GET,
+      spiffe://cluster.local/ns/default/sa/k6-client:benchmark-user:/api/resource/dynamic-{id}:GET
 management:
   server:
     port: 8081

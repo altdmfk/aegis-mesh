@@ -50,8 +50,7 @@ logs/
 # ── Spring Boot devtools restart ──────────────
 .spring-boot-devtools.properties
 
-# ── Docs ──────────────────────────────────────
-docs/
+
 
 # ── Dashboard (Node / Vite) ───────────────────
 dashboard/node_modules/

@@ -24,6 +24,7 @@ class PolicyEngineStampedeTest extends BaseBlockHoundTest {
     private Cache<String, PolicyDecision> l1Cache;
     private L2CacheService l2CacheService;
     private AtomicInteger l2CallCount;
+    private io.micrometer.core.instrument.simple.SimpleMeterRegistry meterRegistry;
 
     @BeforeEach
     void setUp() {
@@ -37,7 +38,7 @@ class PolicyEngineStampedeTest extends BaseBlockHoundTest {
             return Mono.just(PolicyDecision.ALLOW).delayElement(Duration.ofMillis(100));
         });
 
-        io.micrometer.core.instrument.MeterRegistry meterRegistry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+        meterRegistry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
         policyEngine = new PolicyEngine(l1Cache, l2CacheService, meterRegistry);
     }
 
@@ -56,6 +57,9 @@ class PolicyEngineStampedeTest extends BaseBlockHoundTest {
         // Single-Flight pattern should guarantee only ONE call was made to L2
         assertEquals(1, l2CallCount.get(), "L2 Cache should only be called once during a stampede");
         // And L1 should now be populated for subsequent calls
-        assertEquals(PolicyDecision.ALLOW, l1Cache.getIfPresent(key.toString()));
+        assertEquals(PolicyDecision.ALLOW, l1Cache.getIfPresent(key.toHashedKey()));
+
+        double deduplicated = meterRegistry.counter("aegis.policy.singleflight.deduplicated").count();
+        assertEquals(99.0, deduplicated, "Single-flight should deduplicate 99 out of 100 concurrent requests");
     }
 }

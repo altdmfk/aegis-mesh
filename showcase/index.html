@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aegis-Mesh Showcase</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="header-top">
+        <h1>Aegis-Mesh Gateway</h1>
+        <div class="lang-toggle">
+          <button id="lang-ko">KO</button>
+          <button id="lang-en" class="active">EN</button>
+        </div>
+      </div>
+      <p class="subtitle" data-i18n="subtitle">High-Throughput Zero-Trust Architecture</p>
+    </header>
+
+    <div class="blueprint-card">
+      <div class="blueprint-flow">
+        <!-- Box 1 -->
+        <div class="bp-box">
+          <div class="bp-badge slate" data-i18n="bp_tag_1">Production Demo</div>
+          <div class="bp-title" data-i18n="bp_title_1">Zero-Trust Ticketing</div>
+          <div class="bp-subtitle" data-i18n="bp_sub_1">End-to-end operational flow</div>
+        </div>
+        
+        <!-- Conn 1 -->
+        <div class="bp-conn arrow">
+          <span class="desktop-conn" data-i18n="bp_conn_1">→</span>
+          <span class="mobile-conn">↓</span>
+        </div>
+        
+        <!-- Box 2 -->
+        <div class="bp-box">
+          <div class="bp-badge emerald" data-i18n="bp_tag_2">Ingress Security</div>
+          <div class="bp-title" data-i18n="bp_title_2">FIDO2 Hardware PoP</div>
+          <div class="bp-subtitle" data-i18n="bp_sub_2">Fast-fail edge authorization</div>
+        </div>
+        
+        <!-- Conn 2 -->
+        <div class="bp-conn plus">
+          <span class="desktop-conn">+</span>
+          <span class="mobile-conn">↓</span>
+        </div>
+        
+        <!-- Box 3 -->
+        <div class="bp-box">
+          <div class="bp-badge cyan" data-i18n="bp_tag_3">Concurrency Engine</div>
+          <div class="bp-title" data-i18n="bp_title_3">Aegis-Mesh Reactive Core</div>
+          <div class="bp-subtitle" data-i18n="bp_sub_3">Single-flight & in-process cache</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="tab1" data-i18n="tab1">Zero-Trust Ticketing Demo</button>
+      <button class="tab-btn" data-tab="tab2" data-i18n="tab2">FIDO2 PoP Pipeline</button>
+      <button class="tab-btn" data-tab="tab3" data-i18n="tab3">Architecture & Single-Flight</button>
+    </nav>
+
+    <main class="tab-content">
+      <!-- Tab 1 -->
+      <section id="tab1" class="tab-pane active">
+        <div class="tab-context-strip" data-i18n="t1_caption" style="text-align: center; margin-bottom: 2rem;">
+          Demonstrating how edge hardware-bound authentication and reactive gateway concurrency combine to handle high-traffic reservation bursts without upstream bottlenecks.
+        </div>
+        <div class="demo-container">
+          <!-- Legitimate User UI -->
+          <div class="panel ticket-ui">
+            <div class="panel-header" data-i18n="t1_legit_header">Legitimate Client</div>
+            <div class="panel-body">
+              <h2 class="section-title" data-i18n="t1_res_title">Ticket Reservation</h2>
+              <p class="desc" data-i18n="t1_res_desc">Select an available seat.</p>
+              
+              <div class="theater-container">
+                <div class="theater-stage" data-i18n="t1_stage">STAGE</div>
+                <div class="theater-map-wrapper">
+                  <div class="seat-grid">
+                    <!-- Grid populated by JS -->
+                  </div>
+                  <div id="attack-overlay-macro" class="attack-overlay hidden">
+                    <span data-i18n="t1_badge_macro">🚫 Macro Replay Blocked: FIDO2 PoP Nonce Mismatch</span>
+                  </div>
+                </div>
+                <div class="theater-legend">
+                  <span class="legend-item"><span class="box vip"></span> <span data-i18n="t1_leg_vip">VIP</span></span>
+                  <span class="legend-item"><span class="box reg"></span> <span data-i18n="t1_leg_reg">Regular</span></span>
+                  <span class="legend-item"><span class="box taken"></span> <span data-i18n="t1_leg_taken">Taken</span></span>
+                  <span class="legend-item"><span class="box sel"></span> <span data-i18n="t1_leg_sel">Selected</span></span>
+                </div>
+              </div>
+              
+              <button id="checkout-btn" class="checkout-btn" disabled data-i18n="t1_btn_reserve">
+                Reserve Ticket
+              </button>
+
+              <div class="callout-box mt-4">
+                <em data-i18n="t1_callout">This ticketing interface acts as a live client testing the integrated pipeline: The ingress layer validates client hardware identity to block stolen-token macros at the edge, while Aegis-Mesh coalesces high-concurrency seat reservation bursts to protect upstream databases from cache stampedes.</em>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Attacker & Logs UI -->
+          <div class="panel attacker-ui">
+            <div class="panel-header danger" data-i18n="t1_attack_header">Attacker Simulation & Logs</div>
+            <div class="panel-body">
+              
+              <div class="actions">
+                <div class="action-card">
+                  <div class="action-info">
+                    <h4 data-i18n="t1_macro_title">Macro Replay Attack</h4>
+                    <p data-i18n="t1_macro_desc">Attacker intercepts a valid JWT and replays it rapidly to snatch tickets.</p>
+                  </div>
+                  <button class="btn outline danger" id="btn-simulate-macro" data-i18n="t1_btn_macro">Run Macro</button>
+                </div>
+                
+                <div class="action-card">
+                  <div class="action-info">
+                    <h4 data-i18n="t1_tamper_title">Payload Tampering</h4>
+                    <p data-i18n="t1_tamper_desc">Attacker intercepts JWT and alters the seat ID without a valid FIDO2 signature.</p>
+                  </div>
+                  <button class="btn outline warning" id="btn-simulate-tamper" data-i18n="t1_btn_tamper">Inject Payload</button>
+                </div>
+              </div>
+              
+              <div class="sf-terminal">
+                <div class="sf-term-header">
+                  <div class="sf-term-title">&gt;_ Gateway & System Trace Log</div>
+                </div>
+                <div class="sf-term-body tab1-term" id="terminal-log">
+                  <div class="sf-log-line idle" data-i18n="trace_idle" style="margin: 0;">Waiting for incoming requests...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 2 -->
+      <section id="tab2" class="tab-pane">
+        <div class="architecture-container">
+          <div class="sf-header">
+            <h3 class="section-title" data-i18n="t2_title">FIDO2 Hardware-Bound Proof-of-Possession</h3>
+            <p class="desc" data-i18n="ctx_tab2" style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 1rem;">
+              Deep dive into the Ingress Layer — rejects macro replays and session hijacking at the network edge before hitting downstream services.
+            </p>
+            <p style="font-size: 0.95rem; font-weight: 600; color: #34d399; margin-bottom: 0.5rem;" data-i18n="t2_badge">
+              100 VU benchmark ➔ 780 RPS (+437%), latency reduced by 94%
+            </p>
+            <p class="desc" data-i18n="t2_desc" style="font-size: 0.9rem; color: #cbd5e1; margin-bottom: 1.5rem;">
+              Fast-Fail Verification: O(1) sliding window, streaming SHA-256 for rapid rejection.
+            </p>
+          </div>
+
+          <div class="iframe-container">
+            <div class="iframe-header">
+              <span class="title">Paper 10 Artifact Visualization</span>
+              <a href="https://altdmfk.github.io/fido2-pop-gateway/" target="_blank" rel="noopener noreferrer" class="link">
+                Open External ↗
+              </a>
+            </div>
+            <iframe 
+              src="https://altdmfk.github.io/fido2-pop-gateway/" 
+              title="FIDO2 PoP Visualization" 
+              loading="lazy"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms">
+            </iframe>
+            <div class="iframe-fallback">
+               <a href="https://altdmfk.github.io/fido2-pop-gateway/" target="_blank" class="link">Open Visualization</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 3 -->
+      <section id="tab3" class="tab-pane">
+        <div class="architecture-container">
+          <div class="sf-header">
+            <h3 class="section-title" data-i18n="t3_title">Cache Stampede Mitigation (Single-Flight)</h3>
+            <p class="desc" data-i18n="ctx_tab3" style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 1rem;">
+              Deep dive into the Gateway Core — non-blocking Single-Flight pattern that coalesces 500 concurrent requests into 1 upstream evaluation.
+            </p>
+            <p style="font-size: 0.95rem; font-weight: 600; color: #38bdf8; margin-bottom: 0.5rem;" data-i18n="t3_badge">
+              500 concurrent ingress requests coalesced into 1 upstream query (99.8% downstream I/O reduction)
+            </p>
+            <p class="desc" data-i18n="t3_desc" style="font-size: 0.9rem; color: #cbd5e1; margin-bottom: 1.5rem;">
+              Mitigates cache stampedes under high concurrency by acquiring a non-blocking mutex on the first incoming key. Subsequent identical requests subscribe to the shared reactive publisher (Mono.share()), receiving the broadcasted response upon completion without querying upstream resources.
+            </p>
+          </div>
+
+          <div class="sf-dashboard">
+            <!-- Top Half: Metrics Comparison -->
+            <div class="sf-metrics">
+              <div class="metrics-card danger-zone">
+                <div class="card-title text-danger" data-i18n="card_a">Without Single-Flight (Baseline)</div>
+                <div class="metric-row">
+                  <div class="metric-label" data-i18n="t3_db">Upstream DB I/O</div>
+                  <div class="metric-value"><span id="metric-db-off">0</span> reqs</div>
+                </div>
+                <div class="metric-row">
+                  <div class="metric-label" data-i18n="t3_pool">Connection Pool Usage</div>
+                  <div class="progress-bar-bg"><div class="progress-bar danger" id="bar-pool-off" style="width: 0%"></div></div>
+                  <div class="metric-value"><span id="metric-pool-off">0%</span></div>
+                </div>
+                <div class="metric-row">
+                  <div class="metric-label" data-i18n="t3_lat">P99 Tail Latency</div>
+                  <div class="metric-value text-danger"><span id="metric-lat-off">0</span> ms</div>
+                </div>
+              </div>
+              
+              <div class="metrics-card success-zone">
+                <div class="card-title text-success" data-i18n="card_b">With Aegis-Mesh (Active)</div>
+                <div class="metric-row">
+                  <div class="metric-label" data-i18n="t3_db">Upstream DB I/O</div>
+                  <div class="metric-value">
+                    <span id="metric-db-on">0</span> reqs 
+                    <span id="saved-badge" class="fanout-badge" style="opacity:0; padding: 0.1rem 0.4rem; font-size: 0.7rem; margin-left: 0.5rem;">(99.8% Saved)</span>
+                  </div>
+                </div>
+                <div class="metric-row">
+                  <div class="metric-label" data-i18n="t3_pool">Connection Pool Usage</div>
+                  <div class="progress-bar-bg"><div class="progress-bar success" id="bar-pool-on" style="width: 0%"></div></div>
+                  <div class="metric-value"><span id="metric-pool-on">0.0%</span></div>
+                </div>
+                <div class="metric-row">
+                  <div class="metric-label" data-i18n="t3_lat">P99 Tail Latency</div>
+                  <div class="metric-value text-success"><span id="metric-lat-on">0.0</span> ms</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bottom Half: Waterfall Timeline -->
+            <div class="sf-waterfall">
+              <div class="waterfall-header">
+                <div class="legend">
+                  <span class="legend-item"><span class="box blue"></span> <span data-i18n="t3_legend1">Leader Executing (~35ms)</span></span>
+                  <span class="legend-item"><span class="box amber"></span> <span data-i18n="t3_legend2">In-Flight Coalescing</span></span>
+                  <span class="legend-item"><span class="box green"></span> <span data-i18n="t3_legend3">Resolved & Broadcasted</span></span>
+                </div>
+                <div class="timeline-ruler">
+                  <span>0ms</span>
+                  <span>~35ms DB Roundtrip</span>
+                  <span>Instant Fan-out (0.05ms)</span>
+                </div>
+              </div>
+              <div class="waterfall-body" id="waterfall-rows">
+                <div class="wf-scrubber" id="wf-scrubber"></div>
+                <div id="wf-dynamic-rows"></div>
+              </div>
+              <div class="waterfall-footer">
+                <div class="fanout-badge" id="fanout-badge" style="opacity:0">
+                  ⚡ 499 In-Flight Requests Resolved in 0.08ms with 0 Additional DB Queries
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="sf-terminal" id="sf-terminal-container">
+            <div class="sf-term-header">
+              <div class="sf-term-title">&gt;_ Gateway & System Trace Log</div>
+            </div>
+            <div class="sf-term-body" id="sf-term-body">
+              <div class="sf-log-line idle">Waiting for incoming requests...</div>
+            </div>
+          </div>
+          
+          <div class="sf-controls">
+            <button id="sf-btn-single" class="btn outline success" data-i18n="btn_single">Single Request</button>
+            <button id="sf-btn-burst" class="btn outline danger" data-i18n="btn_burst">Simulate 500 Burst Spike</button>
+            <button id="sf-btn-reset" class="btn outline text-muted" data-i18n="btn_reset">Reset Metrics</button>
+          </div>
+
+          <div class="arch-details">
+            <div class="arch-card">
+              <h4>Dual-Identity JWT</h4>
+              <p>Ingress token parsing for hardware-bound sessions.</p>
+            </div>
+            <div class="arch-card">
+              <h4>In-Process Caching</h4>
+              <p>Asynchronous non-blocking evaluation with L1/L2 fallbacks.</p>
+            </div>
+            <div class="arch-card">
+              <h4>mTLS Routing</h4>
+              <p>Upstream routing with internal SPIFFE identity propagation.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
