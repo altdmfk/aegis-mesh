@@ -34,6 +34,7 @@ results.json
 results.csv
 *.k6log
 /result/
+k6.exe
 
 # ── Temporary Benchmark Scripts ──────────────
 run_pipeline.ps1
@@ -56,4 +57,14 @@ logs/
 dashboard/node_modules/
 dashboard/dist/
 dashboard/.env*.local
+
+# ── Showcase Generated Artifacts ─────────────
+showcase/paper.md
+
+# ── Python / Temporary ───────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.zip
+*.tar.gz
 

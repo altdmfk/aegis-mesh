@@ -27,7 +27,10 @@ public class L2CacheService {
         return redisTemplate.opsForValue().get("policy:" + rawKeyStr)
                 .map(PolicyDecision::valueOf)
                 .switchIfEmpty(Mono.defer(() -> {
-                    if (policyAllowlist.contains(rawKeyStr)) {
+                    boolean allowed = policyAllowlist.stream().anyMatch(pattern -> 
+                        new org.springframework.util.AntPathMatcher().match(pattern, rawKeyStr)
+                    );
+                    if (allowed) {
                         return Mono.just(PolicyDecision.ALLOW);
                     }
                     return Mono.just(PolicyDecision.DENY);
@@ -35,24 +38,10 @@ public class L2CacheService {
     }
 
     public Mono<Boolean> setPolicyDecision(String rawKeyStr, PolicyDecision decision) {
-        String hashedKey = sha256Hex(rawKeyStr);
+        String hashedKey = com.aegis.gateway.util.HashUtil.sha256Hex(rawKeyStr);
         return redisTemplate.opsForValue().set("policy:" + rawKeyStr, decision.name(), Duration.ofHours(1))
                 .flatMap(success -> redisTemplate.convertAndSend("policy-invalidation", hashedKey).thenReturn(success));
     }
 
-    private static String sha256Hex(String input) {
-        try {
-            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hash) {
-                String h = Integer.toHexString(0xff & b);
-                if (h.length() == 1) sb.append('0');
-                sb.append(h);
-            }
-            return sb.toString();
-        } catch (java.security.NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 not supported", e);
-        }
-    }
+
 }

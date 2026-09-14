@@ -125,6 +125,7 @@ public class ContextExtractionGatewayFilterFactory extends AbstractGatewayFilter
                 }
             }
         } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(ContextExtractionGatewayFilterFactory.class).warn("Failed to extract SPIFFE identity from certificate", e);
             return null;
         }
         return null; 

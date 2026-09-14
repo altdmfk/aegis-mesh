@@ -21,7 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
       card_b: 'With Aegis-Mesh (Active)',
       btn_single: 'Single Request',
       btn_burst: 'Simulate 500 Burst Spike',
-      btn_reset: 'Reset Metrics',
+      btn_reset: 'Reset',
+      btn_paper: 'Read Paper',
+      t3_caption: 'This system trace demonstrates Aegis-Mesh handling 500 simultaneous requests. Only 1 request reaches the backend DB, while the remaining 499 requests coalesce in-flight into the existing reactive stream to receive the cached response immediately with Zero DB I/O.',
       trace_idle: 'Waiting for incoming requests...',
       ctx_tab2: 'Deep dive into the Ingress Layer — rejects macro replays and session hijacking at the network edge before hitting downstream services.',
       ctx_tab3: 'Deep dive into the Gateway Core — non-blocking Single-Flight pattern that coalesces 500 concurrent requests into 1 upstream evaluation.',
@@ -81,7 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
       card_b: 'Aegis-Mesh 적용 (동시성 제어)',
       btn_single: '단일 요청',
       btn_burst: '500건 동시 버스트 시뮬레이션',
-      btn_reset: '지표 초기화',
+      btn_reset: '초기화',
+      btn_paper: '논문 보기',
+      t3_caption: '이 시스템 트레이스는 Aegis-Mesh가 500개의 동시 요청을 처리하는 과정을 보여줍니다. 단 1개의 요청만 백엔드 DB로 전달되며, 나머지 499개 요청은 In-Flight 상태에서 기존 스트림에 병합되어 대기하다 DB 부하 없이(Zero I/O) 캐시된 응답을 즉시 반환받습니다.',
       trace_idle: '인그레스 요청 대기 중...',
       ctx_tab2: '인그레스 레이어 심층 분석 — 백엔드 도달 전 네트워크 엣지에서 매크로 리플레이 및 세션 하이재킹을 차단합니다.',
       ctx_tab3: '게이트웨이 코어 심층 분석 — 500개의 동시 요청을 1개의 업스트림 요청으로 병합하는 논블로킹 Single-Flight 패턴입니다.',
@@ -313,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const wfData = [];
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 3; i++) {
     wfData.push({
       id: i,
       label: i === 1 ? 'Req #1 [Leader]' : `Req #${i}`,
@@ -492,9 +496,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
       
-      appendLog('trace', 'Ingress: 500 concurrent requests intercepted for URI: /api/v1/auth/token');
-      appendLog('trace', 'Single-Flight: Acquired in-flight mutex for key [token:auth:0x7A]. Promoted Req #1 as Leader.', 10);
-      appendLog('trace', 'Reactive Mesh: Reqs #2..#500 coalesced into shared pipeline via Mono.share(). Zero upstream queries dispatched.', 30);
+      appendLog('trace', '[Ingress] Concurrent burst detected on URI: /api/v1/ticket');
+      for (let i = 1; i <= 6; i++) {
+        appendLog('trace', `[Ingress] Routing Request #${i} to authentication filter...`, i * 5);
+      }
+      appendLog('trace', '[Ingress] ... and 494 more requests arrived simultaneously.', 35);
+      appendLog('trace', '[Single-Flight] Cache Miss! Request #1 acquired the mutex and is promoted as Leader.', 45);
+      appendLog('trace', '[Reactive Mesh] Requests #2 to #500 blocked from backend. Coalesced into shared Mono.share() pipeline.', 55);
 
     } else {
       mDbOff.textContent = '1';
@@ -506,7 +514,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = document.getElementById('wf-row-1');
       if (row) row.classList.add('show');
       
-      appendLog('trace', 'Ingress: Single request received. Key [token:auth:0x7A] has no active in-flight listeners.');
+      appendLog('trace', '[Ingress] Single reservation request received. No active in-flight queue, dispatching directly to backend DB.');
     }
 
     mDbOn.textContent = '1';
@@ -565,7 +573,7 @@ document.addEventListener('DOMContentLoaded', () => {
         appendLog('trace', '[00:00.035] Upstream: Leader received 200 OK from Auth-Service (35ms roundtrip).');
         appendLog('success', '[00:00.035] Fan-Out: Emitted cached payload to 499 awaiting subscribers in 0.04ms. Downstream I/O saved: 99.8%.');
       } else {
-        appendLog('success', '[00:00.035] Upstream: Dispatched 1 query, returned 200 OK (35ms).');
+        appendLog('success', '[Upstream DB] Successfully fetched data from the backend DB (35ms roundtrip).');
       }
       
       btnSingle.disabled = false;
@@ -579,3 +587,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
   resetDashboard();
 });
+
+// Paper Modal Logic
+document.addEventListener('DOMContentLoaded', () => {
+  const btnReadPaper = document.getElementById('btn-read-paper');
+  const modalOverlay = document.getElementById('paper-modal');
+  const modalClose = document.getElementById('close-modal');
+  const paperContent = document.getElementById('paper-content');
+
+  if (btnReadPaper && modalOverlay && modalClose && paperContent) {
+    let paperLoaded = false;
+
+    btnReadPaper.addEventListener('click', (e) => {
+      e.preventDefault();
+      modalOverlay.classList.add('show');
+      
+      if (!paperLoaded) {
+        fetch('paper.md')
+          .then(res => {
+            if(!res.ok) throw new Error('Network response was not ok');
+            return res.text();
+          })
+          .then(text => {
+            if (typeof marked !== 'undefined') {
+              paperContent.innerHTML = marked.parse(text);
+              if (typeof renderMathInElement !== 'undefined') {
+                renderMathInElement(paperContent, {
+                  delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                  ],
+                  throwOnError: false
+                });
+              }
+            } else {
+              paperContent.innerHTML = '<pre style="white-space: pre-wrap; font-family: inherit;">' + text + '</pre>';
+            }
+            paperLoaded = true;
+          })
+          .catch(err => {
+            paperContent.innerHTML = '<span class="text-danger">Failed to load paper.md. Please ensure the server is running correctly.</span>';
+            console.error(err);
+          });
+      }
+    });
+
+    modalClose.addEventListener('click', () => {
+      modalOverlay.classList.remove('show');
+    });
+
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) {
+        modalOverlay.classList.remove('show');
+      }
+    });
+  }
+});
+

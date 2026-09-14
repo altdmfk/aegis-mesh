@@ -3,14 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aegis-Mesh Showcase</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%233b82f6%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z%22/></svg>">
+  <title>Zero-Trust Gateway Console</title>
+  <link rel="stylesheet" href="style.css?v=v24">
+  <!-- KaTeX -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
 </head>
 <body>
   <div class="app-container">
     <header class="app-header">
       <div class="header-top">
-        <h1>Aegis-Mesh Gateway</h1>
+        <h1>Zero-Trust Gateway Console</h1>
         <div class="lang-toggle">
           <button id="lang-ko">KO</button>
           <button id="lang-en" class="active">EN</button>
@@ -187,9 +190,15 @@
             <p style="font-size: 0.95rem; font-weight: 600; color: #38bdf8; margin-bottom: 0.5rem;" data-i18n="t3_badge">
               500 concurrent ingress requests coalesced into 1 upstream query (99.8% downstream I/O reduction)
             </p>
-            <p class="desc" data-i18n="t3_desc" style="font-size: 0.9rem; color: #cbd5e1; margin-bottom: 1.5rem;">
+            <p class="desc" data-i18n="t3_desc" style="font-size: 0.9rem; color: #cbd5e1; margin-bottom: 1rem;">
               Mitigates cache stampedes under high concurrency by acquiring a non-blocking mutex on the first incoming key. Subsequent identical requests subscribe to the shared reactive publisher (Mono.share()), receiving the broadcasted response upon completion without querying upstream resources.
             </p>
+            <button id="btn-read-paper" class="btn outline" style="display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; text-decoration: none; padding: 0.5rem 1rem;">
+              <span>📄</span> <span data-i18n="btn_paper">Read Paper</span>
+            </button>
+            <div style="background: rgba(255,255,255,0.05); border-left: 3px solid #34d399; padding: 0.75rem; border-radius: 0 0.25rem 0.25rem 0;">
+              <p style="font-size: 0.85rem; color: #cbd5e1; margin: 0; line-height: 1.4;" data-i18n="t3_caption"></p>
+            </div>
           </div>
 
           <div class="sf-dashboard">
@@ -257,8 +266,12 @@
                 </div>
               </div>
             </div>
-          </div>
           
+          <div class="sf-controls">
+              <button id="sf-btn-single" class="btn outline success" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;" data-i18n="btn_single">Single Request</button>
+              <button id="sf-btn-burst" class="btn outline danger" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;" data-i18n="btn_burst">Simulate 500 Burst Spike</button>
+              <button id="sf-btn-reset" class="btn outline text-muted" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;" data-i18n="btn_reset">Reset</button>
+            </div>
           <div class="sf-terminal" id="sf-terminal-container">
             <div class="sf-term-header">
               <div class="sf-term-title">&gt;_ Gateway & System Trace Log</div>
@@ -268,30 +281,26 @@
             </div>
           </div>
           
-          <div class="sf-controls">
-            <button id="sf-btn-single" class="btn outline success" data-i18n="btn_single">Single Request</button>
-            <button id="sf-btn-burst" class="btn outline danger" data-i18n="btn_burst">Simulate 500 Burst Spike</button>
-            <button id="sf-btn-reset" class="btn outline text-muted" data-i18n="btn_reset">Reset Metrics</button>
           </div>
-
-          <div class="arch-details">
-            <div class="arch-card">
-              <h4>Dual-Identity JWT</h4>
-              <p>Ingress token parsing for hardware-bound sessions.</p>
-            </div>
-            <div class="arch-card">
-              <h4>In-Process Caching</h4>
-              <p>Asynchronous non-blocking evaluation with L1/L2 fallbacks.</p>
-            </div>
-            <div class="arch-card">
-              <h4>mTLS Routing</h4>
-              <p>Upstream routing with internal SPIFFE identity propagation.</p>
-            </div>
-          </div>
-        </div>
       </section>
     </main>
   </div>
-  <script src="script.js"></script>
+  
+  <!-- Paper Modal -->
+  <div id="paper-modal" class="modal-overlay">
+    <div class="modal-content">
+      <button id="close-modal" class="modal-close">&times;</button>
+      <div id="paper-content" class="markdown-body">
+        <span style="color: #64748b;">Loading paper...</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- KaTeX -->
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+  
+  <script src="script.js?v=v40"></script>
 </body>
 </html>

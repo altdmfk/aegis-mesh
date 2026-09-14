@@ -1,0 +1,47 @@
+﻿name: Deploy Showcase to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'showcase/**'
+      - 'docs/paper.md'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare Showcase Artifacts
+        run: |
+          # Copy docs/paper.md into showcase/ so it is self-contained for static hosting
+          cp docs/paper.md showcase/paper.md
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'showcase'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,160 @@
+{
+    "metrics": {
+        "http_reqs": {
+            "count": 30676,
+            "rate": 1021.7814384321724
+        },
+        "iteration_duration": {
+            "p(90)": 27.2678,
+            "p(95)": 30.5994,
+            "p(99)": 36.7079,
+            "max": 75.8805,
+            "min": 11.2004,
+            "avg": 19.54567536184674,
+            "med": 18.0254
+        },
+        "req_duration_a": {
+            "min": 1.0497,
+            "avg": 7.684089252184168,
+            "med": 6.3657,
+            "p(90)": 13.4576,
+            "p(95)": 16.6927,
+            "p(99)": 24.2766,
+            "max": 47.4691
+        },
+        "data_received": {
+            "count": 40612492,
+            "rate": 1352754.286545674
+        },
+        "vus": {
+            "min": 20,
+            "max": 20,
+            "value": 20
+        },
+        "http_req_receiving": {
+            "min": 0,
+            "avg": 0.09261637436432348,
+            "med": 0,
+            "p(90)": 0.5288,
+            "p(95)": 0.539325,
+            "p(99)": 0.6792,
+            "max": 11.8948
+        },
+        "iterations": {
+            "count": 30676,
+            "rate": 1021.7814384321724
+        },
+        "rate_200_ok": {
+            "passes": 30676,
+            "fails": 0,
+            "value": 1
+        },
+        "rate_403_forbidden": {
+            "fails": 30676,
+            "passes": 0,
+            "value": 0
+        },
+        "rate_connection_error": {
+            "passes": 0,
+            "fails": 30676,
+            "value": 0
+        },
+        "checks": {
+            "passes": 30676,
+            "fails": 0,
+            "value": 1
+        },
+        "vus_max": {
+            "max": 20,
+            "value": 20,
+            "min": 20
+        },
+        "http_req_blocked": {
+            "p(95)": 0,
+            "p(99)": 0,
+            "max": 41.2382,
+            "min": 0,
+            "avg": 0.020569908071456516,
+            "med": 0,
+            "p(90)": 0
+        },
+        "http_req_connecting": {
+            "p(99)": 0,
+            "max": 0.504,
+            "min": 0,
+            "avg": 0.00014786804016168992,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 30676,
+            "value": 0
+        },
+        "http_req_duration": {
+            "p(99)": 24.2766,
+            "max": 47.4691,
+            "min": 1.0497,
+            "avg": 7.684089252184168,
+            "med": 6.3657,
+            "p(90)": 13.4576,
+            "p(95)": 16.6927
+        },
+        "http_req_duration{expected_response:true}": {
+            "med": 6.3657,
+            "p(90)": 13.4576,
+            "p(95)": 16.6927,
+            "p(99)": 24.2766,
+            "max": 47.4691,
+            "min": 1.0497,
+            "avg": 7.684089252184168
+        },
+        "data_sent": {
+            "count": 11630788,
+            "rate": 387407.852808047
+        },
+        "http_req_tls_handshaking": {
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "max": 38.7598,
+            "min": 0,
+            "avg": 0.014966387403833614,
+            "med": 0
+        },
+        "http_req_sending": {
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 0.543625,
+            "max": 3.756,
+            "min": 0,
+            "avg": 0.018376988525231452
+        },
+        "http_req_waiting": {
+            "min": 1.0307,
+            "avg": 7.573095889294611,
+            "med": 6.32585,
+            "p(90)": 13.3022,
+            "p(95)": 16.5428,
+            "p(99)": 24.1479,
+            "max": 47.4691
+        }
+    },
+    "root_group": {
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "status is not 0 (connection ok)": {
+                    "name": "status is not 0 (connection ok)",
+                    "path": "::status is not 0 (connection ok)",
+                    "id": "3c9192ca81a19756c34324d005da50ac",
+                    "passes": 30676,
+                    "fails": 0
+                }
+            },
+        "name": ""
+    }
+}

@@ -37,7 +37,8 @@ gateway:
     policy-allowlist: >-
       spiffe://cluster.local/ns/default/sa/k6-client:benchmark-user:/api/resource/static-warm:GET,
       spiffe://cluster.local/ns/default/sa/k6-client:benchmark-user:/api/resource/stress-warm:GET,
-      spiffe://cluster.local/ns/default/sa/k6-client:benchmark-user:/api/resource/dynamic-{id}:GET
+      spiffe://cluster.local/ns/default/sa/k6-client:benchmark-user:/api/resource/dynamic-*:GET,
+      spiffe://cluster.local/ns/default/sa/k6-client:benchmark-user:/api/resource/stress-*:GET
 management:
   server:
     port: 8081

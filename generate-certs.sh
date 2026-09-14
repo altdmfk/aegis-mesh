@@ -24,14 +24,14 @@ EOF
 openssl x509 -req -in $OUT_DIR/server.csr -CA $OUT_DIR/ca.crt -CAkey $OUT_DIR/ca.key -CAcreateserial -out $OUT_DIR/server.crt -days 825 -extfile $OUT_DIR/server_ext.cnf
 
 # 3. Generate Client Certificate with SPIFFE URI
-openssl req -newkey rsa:2048 -nodes -keyout $OUT_DIR/client.key -out $OUT_DIR/client.csr -subj "/CN=service-a"
+openssl req -newkey rsa:2048 -nodes -keyout $OUT_DIR/client.key -out $OUT_DIR/client.csr -subj "/CN=k6-client"
 
 cat > $OUT_DIR/client_ext.cnf << EOF
 authorityKeyIdentifier=keyid,issuer
 basicConstraints=CA:FALSE
 keyUsage = digitalSignature, keyEncipherment
 extendedKeyUsage = clientAuth
-subjectAltName = URI:spiffe://cluster.local/ns/default/sa/service-a
+subjectAltName = URI:spiffe://cluster.local/ns/default/sa/k6-client
 EOF
 
 openssl x509 -req -in $OUT_DIR/client.csr -CA $OUT_DIR/ca.crt -CAkey $OUT_DIR/ca.key -CAcreateserial -out $OUT_DIR/client.crt -days 825 -extfile $OUT_DIR/client_ext.cnf

@@ -14,11 +14,11 @@
 
 3. 단일 비행(Single-Flight) 패턴을 구현했다. L1 캐시 만료 시 발생하는 동시 폭주 요청을 단일 Redis I/O로 병합하여 시스템 포화를 차단한다.
 
-k6 기반 부하 테스트를 통해 계층형 캐시의 지연 억제 효과를 확인하였다. 웜업 완료 후 L1 캐시 적중 시 응답 지연은 P50 4.33 ms, P99 9.67 ms, 최대 37.28 ms를 기록하였다. 전량 L1 캐시 미스 상황(P50 5.38 ms, P99 19.08 ms, 최대 54.87 ms)과 비교할 때 꼬리 지연(Tail Latency)이 단축되었음을 나타낸다.
+k6 기반 부하 테스트를 통해 계층형 캐시의 지연 억제 효과를 확인하였다. 웜업 완료 후 L1 캐시 적중 시 응답 지연은 P50 5.55 ± 0.61 ms, P99 20.89 ± 5.00 ms, 최대 41.02 ~ 77.35 ms를 기록하였다. 전량 L1 캐시 미스 상황(P50 7.02 ± 1.43 ms, P99 26.89 ± 9.35 ms, 최대 53.35 ~ 108.05 ms)과 비교할 때 꼬리 지연(Tail Latency)이 단축되었음을 나타낸다.
 
-JVM 초기 기동(Cold Start) 구간의 성능도 평가하였다. 초기 기동 구간에서도 P50 기준 4.47 ms의 응답 지연을 나타낸다. JIT 컴파일러 웜업이 진행됨에 따라 최대 지연 시간은 245.94 ms에서 37.28 ms로 84.8% 감소하였으며, 이는 지연 시간이 점차 수렴하는 경향을 나타낸다.
+JVM 초기 기동(Cold Start) 구간의 성능도 평가하였다. 초기 기동 구간에서도 P50 기준 7.07 ± 1.94 ms의 응답 지연을 나타낸다. JIT 컴파일러 웜업이 진행됨에 따라 최대 지연 시간은 442.96 ~ 753.05 ms에서 41.02 ~ 77.35 ms로 약 89.7% 감소하였으며, 이는 지연 시간이 점차 수렴하는 경향을 나타낸다.
 
-극단적인 동시 부하 환경에서의 구조적 안정성도 확인하였다. 500명의 가상 사용자를 투입한 시나리오에서 총 204,375건의 요청을 오류 없이 처리하여 100%의 가용성을 확인하였다.
+극단적인 동시 부하 환경에서의 구조적 안정성도 확인하였다. 500명의 가상 사용자를 투입한 시나리오에서 총 155,546 ± 17,927건의 요청을 단 1건의 오류 없이 처리하여 100%의 가용성을 확인하였다.
 
 **핵심어:** 제로 트러스트, API 게이트웨이, mTLS, SPIFFE, 리액티브 시스템, 캐시 스탬피드, 단일 비행 패턴, Spring Cloud Gateway
 
@@ -26,7 +26,7 @@ JVM 초기 기동(Cold Start) 구간의 성능도 평가하였다. 초기 기동
 
 ## Abstract
 
-This paper presents the design and implementation of `aegis-mesh`, an in-process Zero-Trust API gateway that evaluates authorization policies entirely within the gateway process. The proposed system incorporates three core designs: (1) a dual-identity synthesis mechanism that cryptographically binds an mTLS SPIFFE service identity with a user JWT into a single immutable `SecurityContextExchange` record; (2) a two-tier cache combining in-memory Caffeine (L1) with reactive Redis (L2) to eliminate network hops to external authorization servers; and (3) a Single-Flight pattern that coalesces concurrent stampeding requests upon L1 cache expiry into a single Redis I/O operation. Through a unified ablation benchmark using k6 under warmed-up runtime conditions, the L1 cache hit path (Scenario A-Warmed) achieved a median (P50) latency of 4.33 ms, P90 of 6.20 ms, P95 of 7.09 ms, P99 of 9.67 ms, and a maximum latency of 37.28 ms, indicating consistent latency reductions relative to the forced L1-cache-miss path (Scenario B-Warmed: P50 of 5.38 ms, P90 of 8.32 ms, P95 of 10.59 ms, P99 of 19.08 ms, and Max of 54.87 ms). Furthermore, the evaluation shows that although the initial cold start yields a median latency of 4.47 ms, JVM JIT warm-up substantially reduces tail latency, reducing the maximum latency by 84.8% (from 245.94 ms to 37.28 ms). Finally, the gateway exhibited zero connection failures across 204,375 requests under a 500-virtual-user stress test, indicating structural resilience under extreme concurrency (Scenario C).
+This paper presents the design and implementation of `aegis-mesh`, an in-process Zero-Trust API gateway that evaluates authorization policies entirely within the gateway process. The proposed system incorporates three core designs: (1) a dual-identity synthesis mechanism that cryptographically binds an mTLS SPIFFE service identity with a user JWT into a single immutable `SecurityContextExchange` record; (2) a two-tier cache combining in-memory Caffeine (L1) with reactive Redis (L2) to eliminate network hops to external authorization servers; and (3) a Single-Flight pattern that coalesces concurrent stampeding requests upon L1 cache expiry into a single Redis I/O operation. Through a unified ablation benchmark using k6 under warmed-up runtime conditions, the L1 cache hit path (Scenario A-Warmed) achieved a median (P50) latency of 5.55 ± 0.61 ms, P90 of 10.91 ± 2.14 ms, P95 of 13.75 ± 2.86 ms, P99 of 20.89 ± 5.00 ms, and a maximum latency range of 41.02 ~ 77.35 ms, indicating consistent latency reductions relative to the forced L1-cache-miss path (Scenario B-Warmed: P50 of 7.02 ± 1.43 ms, P90 of 14.13 ± 5.05 ms, P95 of 17.45 ± 5.86 ms, P99 of 26.89 ± 9.35 ms, and Max range of 53.35 ~ 108.05 ms). Furthermore, the evaluation shows that although the initial cold start yields a median latency of 7.07 ± 1.94 ms, JVM JIT warm-up substantially reduces tail latency, reducing the maximum latency by 89.7% (from 442.96 ~ 753.05 ms down to 41.02 ~ 77.35 ms). Finally, the gateway exhibited zero connection failures across 155,546 ± 17,927 requests under a 500-virtual-user stress test, indicating structural resilience under extreme concurrency (Scenario C).
 
 **Keywords:** Zero Trust, API Gateway, mTLS, SPIFFE, Reactive Systems, Cache Stampede, Single-Flight Pattern, Spring Cloud Gateway
 
@@ -104,7 +104,7 @@ Welsh et al. [8]이 제안한 SEDA(Staged Event-Driven Architecture)는 동시�
 
 ```mermaid
 flowchart TD
-    Client((클라이언트)) -->|mTLS Handshake + Bearer JWT| Netty[Netty EventLoop<br>epoll Edge-Triggered]
+    Client((클라이언트)) -->|mTLS Handshake + Bearer JWT| Netty[Netty EventLoop<br>Java NIO Selector]
     Netty --> CEFilter[ContextExtractionFilter]
     
     subgraph Context Extraction
@@ -255,7 +255,7 @@ sequenceDiagram
 | --- | --- |
 | 호스트 환경 | Windows 11 64-bit |
 | 런타임 | Java 21 LTS, Spring Cloud Gateway 4.x |
-| 이벤트 루프 | Netty (epoll 기반 논블로킹 I/O), TLS 포트 8443 |
+| 이벤트 루프 | Netty (Java NIO 기반 넌블로킹 I/O), TLS 포트 8443 |
 | L1 캐시 | Caffeine W-TinyLFU (최대 10,000 엔트리, TTL 5분) |
 | L2 캐시 | Redis 7.2-alpine (Docker 컨테이너, localhost:6379) |
 | 다운스트림 | HTTP 에코 서버 (localhost:8080) |
@@ -281,36 +281,32 @@ sequenceDiagram
 **표 3.** 시나리오별 단독 실행 실측 벤치마크 결과
 
 | 측정 지표 | 시나리오 A (Cold Start) | 시나리오 A (Warmed-up) | 시나리오 B (L2 Cold, Warmed-up) | 시나리오 C (500 VU Stress) |
-| --- | --- | --- | --- | --- |
-| 활성 가상 사용자 (VU) | 20 고정 | 20 고정 | 20 고정 | 0 $\rightarrow$ 500 램프업 |
-| 런타임 웜업 상태 | 기동 직후 (Cold) | 워밍업 완료 (Warmed) | 워밍업 완료 (Warmed) | 워밍업 누적 (피크 부하) |
-| 캐시 적중 상태 | 100% L1 적중 | 100% L1 적중 | 100% L1 미스 (L2 조회) | 혼합 (L1 미스 80%) |
-| 테스트 지속 시간 | 30.00초 | 30.00초 | 30.00초 | 120.00초 (2분) |
-| 총 완료 요청 수 | 38,578건 | 39,973건 | 36,119건 | 204,375건 |
-| 초당 처리량 (RPS) | 1,285.35 req/s | 1,331.81 req/s | 1,203.28 req/s | 1,703.01 req/s |
-| HTTP 성공률 (200 OK) | 100.00% | 100.00% | 100.00% | 100.00% |
-| 연결 오류율 / HTTP 에러 | 0.00% | 0.00% | 0.00% | 0.00% |
-| 최소 지연 (Min) | 1.40 ms | 1.37 ms | 1.87 ms | 1.42 ms |
-| 평균 지연 (Avg) | 4.98 ms | 4.50 ms | 6.01 ms | 103.67 ms |
-| 중위 지연 (P50 / Med) | 4.47 ms | 4.33 ms | 5.38 ms | 86.76 ms |
-| 상위 90% 지연 (P90) | 6.75 ms | 6.20 ms | 8.32 ms | 216.65 ms |
-| 상위 95% 지연 (P95) | 8.23 ms | 7.09 ms | 10.59 ms | 288.30 ms |
-| 상위 99% 지연 (P99) | 14.35 ms | 9.67 ms | 19.08 ms | 353.23 ms |
-| 최대 지연 (Max) | 245.94 ms | 37.28 ms | 54.87 ms | 4.59 s |
+| :--- | :---: | :---: | :---: | :---: |
+| 총 완료 요청 수 | 26,036 ± 4,555 건 | 32,960 ± 1,984 건 | 30,764 ± 3,594 건 | 155,546 ± 17,927 건 |
+| 초당 처리량 (RPS) | 867.09 ± 151.80 req/s | 1097.88 ± 66.15 req/s | 1024.42 ± 119.92 req/s | 1295.96 ± 149.34 req/s |
+| 성공률 (200 OK) | 100.00% ± 0.00% | 100.00% ± 0.00% | 100.00% ± 0.00% | 100.00% ± 0.00% |
+| 실패 건수 | 0 건 | 0 건 | 0 건 | 0 건 |
+| 최소 지연 (Min) | 1.14 ± 0.42 ms | 1.04 ± 0.01 ms | 1.87 ± 0.29 ms | 1.58 ± 0.02 ms |
+| 평균 지연 (Avg) | 11.74 ± 4.24 ms | 6.60 ± 0.91 ms | 8.44 ± 2.21 ms | 152.95 ± 23.13 ms |
+| 중위 지연 (P50 / Med) | 7.07 ± 1.94 ms | 5.55 ± 0.61 ms | 7.02 ± 1.43 ms | 125.74 ± 21.04 ms |
+| 상위 90% 지연 (P90) | 24.80 ± 11.81 ms | 10.91 ± 2.14 ms | 14.13 ± 5.05 ms | 304.99 ± 35.07 ms |
+| 상위 95% 지연 (P95) | 34.12 ± 13.92 ms | 13.75 ± 2.86 ms | 17.45 ± 5.86 ms | 377.65 ± 45.61 ms |
+| 상위 99% 지연 (P99) | 60.55 ± 18.51 ms | 20.89 ± 5.00 ms | 26.89 ± 9.35 ms | 526.87 ± 55.64 ms |
+| 최대 지연 (Max 범위) | 442.96 ms ~ 753.05 ms | 41.02 ms ~ 77.35 ms | 53.35 ms ~ 108.05 ms | 6401.46 ms ~ 12417.11 ms |
 
 ### 4.4 데이터 심층 분석 및 고찰
 
 #### 계층형 캐시(L1 vs L2) 소거 연구 검증
 
-동일하게 JVM 웜업을 완료한 조건에서 시나리오 A(Warmed-up)와 시나리오 B(Warmed-up)를 비교하면, 계층형 캐시 아키텍처가 지연 시간 단축에 미치는 효과를 확인할 수 있다. 표 3에서 확인되듯이, L1 캐시 적중 시(시나리오 A-Warmed) P50 지연은 4.33 ms를 기록한 반면, 전량 L1 캐시 미스로 인해 Redis I/O가 개입하는 시나리오 B에서는 P50 지연이 5.38 ms로 증가하였다. 이는 로컬 루프백 소켓 통신을 통한 Redis RTT 및 직렬화/역직렬화에 수반되는 오버헤드가 반영된 결과로 해석된다.
+동일하게 JVM 웜업을 완료한 조건에서 시나리오 A(Warmed-up)와 시나리오 B(Warmed-up)를 비교하면, 계층형 캐시 아키텍처가 지연 시간 단축에 미치는 효과를 확인할 수 있다. 표 3에서 확인되듯이, L1 캐시 적중 시(시나리오 A-Warmed) P50 지연은 5.55 ± 0.61 ms를 기록한 반면, 전량 L1 캐시 미스로 인해 Redis I/O가 개입하는 시나리오 B에서는 P50 지연이 7.02 ± 1.43 ms로 증가하였다. 이는 로컬 루프백 소켓 통신을 통한 Redis RTT 및 직렬화/역직렬화에 수반되는 오버헤드가 반영된 결과로 해석된다.
 
 #### JVM JIT 웜업 및 꼬리 지연 수렴 특성
 
-시나리오 A의 Cold Start 측정과 Warmed-up 측정 간의 대조는 클라우드 네이티브 환경에서 JVM 기반 게이트웨이 운용 시 중요한 런타임 거동을 시사한다. 기동 직후(Cold Start) 구간에서도 게이트웨이의 중위 지연(P50)은 4.47 ms로 나타났으나, HotSpot 컴파일러의 C1/C2 JIT 최적화가 완료되지 않아 최대 지연은 245.94 ms까지 상승하였다. 반면 웜업 트래픽을 거친 후에는 최대 지연이 37.28 ms로 약 84.8% 감소하였으며, 이는 꼬리 지연이 수렴하는 특성을 나타낸다.
+시나리오 A의 Cold Start 측정과 Warmed-up 측정 간의 대조는 클라우드 네이티브 환경에서 JVM 기반 게이트웨이 운용 시 중요한 런타임 거동을 시사한다. 기동 직후(Cold Start) 구간에서 게이트웨이의 중위 지연(P50)은 7.07 ± 1.94 ms, 최대 지연은 442.96 ~ 753.05 ms까지 상승하였다. 반면 웜업 트래픽을 거친 후에는 중위 지연이 5.55 ± 0.61 ms, 최대 지연이 41.02 ~ 77.35 ms로 약 89.7% 급감하였으며, 이는 꼬리 지연이 수렴하는 특성을 나타낸다.
 
 #### 고동시성 스트레스(시나리오 C)와 무손실 복원력
 
-시나리오 C에서는 500 VU 피크 구간에서 최대 지연이 4.59 s까지 상승하였으며, 이는 큐잉 포화(Queueing Saturation) 현상으로 해석된다. 그러나 극단적인 큐 적체 상황에서도 총 204,375건의 요청이 단 1건의 소켓 연결 실패 없이 처리되어, 100%의 가용성이 유지되었다.
+시나리오 C에서는 500 VU 피크 구간에서 최대 지연이 4.59 s까지 상승하였으며, 이는 큐잉 포화(Queueing Saturation) 현상으로 해석된다. 그러나 극단적인 큐 적체 상황에서도 총 155,546 ± 17,927건의 요청이 단 1건의 소켓 연결 실패 없이 처리되어, 100%의 가용성이 유지되었다.
 
 ### 4.5 단일 비행 패턴 및 일관성 검증
 
@@ -345,7 +341,7 @@ sequenceDiagram
 
 본 시스템은 mTLS SPIFFE 신원과 사용자 JWT를 Java 불변 레코드로 합성하여 Confused Deputy 취약점을 구조적으로 방어하였으며, W-TinyLFU 기반 L1 Caffeine 캐시와 리액티브 L2 Redis 캐시를 결합한 계층형 캐시 구조를 구성하였다. 아울러 동시 폭주 요청을 단일 I/O로 병합하는 단일 비행 패턴을 리액티브 스트림으로 구현하고 연산자 순서에 따른 메모리 안전성을 규명하였다.
 
-소거 연구 형태의 부하 테스트 결과, JVM 웜업 완료 후 L1 캐시 적중 조건(P50 4.33 ms, P90 6.20 ms, P99 9.67 ms, 최대 37.28 ms)이 L2 Redis 조회 조건 대비 지연 시간 및 편차가 일관되게 낮게 나타남을 확인하였다. 또한 초기 기동(Cold Start) 시 웜업을 통해 최대 지연이 245.94 ms에서 37.28 ms로 안정화되는 꼬리 지연 수렴 거동을 정량 분석하였으며, 500 VU 극단 부하 조건에서도 오류 없이 요청을 처리하여 100%의 가용성을 확인하였다. 본 연구의 결과는 클라우드 네이티브 환경에서 보안 검증 오버헤드를 제어하기 위한 아키텍처 설계 시 참고 가능한 기초 자료로 활용될 수 있다.
+소거 연구 형태의 부하 테스트 결과, JVM 웜업 완료 후 L1 캐시 적중 조건(P50 5.55 ± 0.61 ms, P90 10.91 ± 2.14 ms, P99 20.89 ± 5.00 ms, 최대 41.02 ~ 77.35 ms)이 L2 Redis 조회 조건(P50 7.02 ± 1.43 ms) 대비 지연 시간 및 편차가 일관되게 낮게 나타남을 확인하였다. 또한 초기 기동(Cold Start) 시 웜업을 통해 최대 지연이 442.96 ~ 753.05 ms에서 41.02 ~ 77.35 ms로 안정화되는 꼬리 지연 수렴 거동을 정량 분석하였으며, 500 VU 극단 부하 조건에서도 오류 없이 요청을 처리하여 100%의 가용성을 확인하였다. 본 연구의 결과는 클라우드 네이티브 환경에서 보안 검증 오버헤드를 제어하기 위한 아키텍처 설계 시 참고 가능한 기초 자료로 활용될 수 있다.
 
 ---
 

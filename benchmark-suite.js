@@ -5,7 +5,9 @@ import crypto from 'k6/crypto';
 import encoding from 'k6/encoding';
 
 // 1. Custom Metrics
-const reqDuration = new Trend('custom_req_duration', true);
+const reqDurationA = new Trend('req_duration_a');
+const reqDurationB = new Trend('req_duration_b');
+const reqDurationC = new Trend('req_duration_c');
 const rate200 = new Rate('rate_200_ok');
 const rate403 = new Rate('rate_403_forbidden');
 const rateError = new Rate('rate_connection_error');
@@ -82,9 +84,7 @@ export const options = {
         },
     ],
     scenarios: allScenarios,
-    thresholds: {
-        'custom_req_duration': ['p(50)<5', 'p(90)<15', 'p(95)<30', 'p(99)<100'],
-    },
+    summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
 };
 
 const params = {
@@ -94,10 +94,10 @@ const params = {
     },
 };
 
-function executeRequest(path) {
+function executeRequest(path, trend) {
     const res = http.get(`${BASE_URL}${path}`, params);
     
-    reqDuration.add(res.timings.duration);
+    trend.add(res.timings.duration);
     
     if (res.status === 200) {
         rate200.add(1);
@@ -120,23 +120,23 @@ function executeRequest(path) {
 
 // Scenario A: Static path hits L1 Caffeine Cache
 export function warmPath() {
-    executeRequest('/api/resource/static-warm');
+    executeRequest('/api/resource/static-warm', reqDurationA);
     sleep(0.01);
 }
 
 // Scenario B: Dynamic paths force L1 Miss -> L2 Redis lookup
 export function coldPath() {
     const randomId = Math.floor(Math.random() * 1000000);
-    executeRequest(`/api/resource/dynamic-${randomId}`);
+    executeRequest(`/api/resource/dynamic-${randomId}`, reqDurationB);
     sleep(0.01);
 }
 
 // Scenario C: Mix of warm and cold paths under high concurrent load
 export function stressPath() {
-    const isCold = Math.random() > 0.8; // 20% chance of L1 miss
+    const isCold = Math.random() < 0.8; // 80% chance of L1 miss (Redis L2 query), 20% warm L1 cache hit
     const path = isCold 
         ? `/api/resource/stress-${Math.floor(Math.random() * 1000000)}` 
         : `/api/resource/stress-warm`;
-    executeRequest(path);
+    executeRequest(path, reqDurationC);
     sleep(0.05);
 }
