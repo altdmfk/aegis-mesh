@@ -622,6 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return res.text();
           })
           .then(text => {
+            text = text.replace(/\.\.\/IMG\//g, 'IMG/');
             if (typeof marked !== 'undefined') {
               paperContent.innerHTML = marked.parse(text);
               if (typeof renderMathInElement !== 'undefined') {

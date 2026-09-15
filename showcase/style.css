@@ -1134,7 +1134,15 @@ iframe {
   background-color: transparent;
   padding: 0;
 }
-.markdown-body blockquote {
+.markdown-body img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1.5rem auto;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .markdown-body blockquote {
   border-left: 4px solid var(--accent);
   padding-left: 1rem;
   color: var(--text-muted);

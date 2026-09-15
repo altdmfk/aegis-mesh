@@ -7,6 +7,7 @@ on:
     paths:
       - 'showcase/**'
       - 'docs/paper.md'
+      - 'IMG/**'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
@@ -33,6 +34,7 @@ jobs:
         run: |
           # Copy docs/paper.md into showcase/ so it is self-contained for static hosting
           cp docs/paper.md showcase/paper.md
+          cp -r IMG showcase/IMG || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
