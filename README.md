@@ -91,32 +91,22 @@ sequenceDiagram
 
 ## ⚡ 성능 벤치마크 (k6 실측 결과)
 
-> **환경:** Local mTLS + Docker Redis · SPIFFE SAN 클라이언트 인증서 · JWT HS256 동적 서명  
-> **구성:** 4-Stage 연속 부하 테스트 파이프라인 (A-Cold → A-Warm → B-Warm → C-Stress)
+> **환경:** Local mTLS + Docker Redis · SPIFFE SAN 클라이언트 인증서 · JWT HS256 동적 서명 (Java NIO 모드, `SO_REUSEADDR` 최적화 적용)  
+> **구성:** 5-Cycle 엄격 분리 실행 (각 시나리오마다 JVM 재기동 및 Redis 플러시를 거쳐 5회 반복 측정 후 평균±표준편차 산출)
 
-### 전체 집계 요약 (4-Scenario Combined)
+### 시나리오별 통계적 성능 프로파일 (5회 평균)
 
-| 항목 | 실측값 |
-|---|---|
-| 총 요청 수 | **319,045** |
-| 파이프라인 총 실행 시간 | **3분 30초** |
-| 평균 RPS | **1,519 req/s** |
-| 200 OK 비율 | **100.00%** (319,045 / 319,045) |
-| 403 / HTTP 에러 | **0.00%** |
-| 소켓 연결 오류 | **0.00%** |
+| 측정 지표 | 시나리오 A (Cold Start) | 시나리오 A (Warmed-up) | 시나리오 B (L2 Cold) | 시나리오 C (500 VU Stress) |
+| :--- | :---: | :---: | :---: | :---: |
+| 초당 처리량 (RPS) | 867.09 ± 151.80 req/s | 1,097.88 ± 66.15 req/s | 1,024.42 ± 119.92 req/s | 1,295.96 ± 149.34 req/s |
+| 중위 지연 (P50) | 7.07 ± 1.94 ms | 5.55 ± 0.61 ms | 7.02 ± 1.43 ms | 125.74 ± 21.04 ms |
+| 상위 95% 지연 (P95) | 34.12 ± 13.92 ms | 13.75 ± 2.86 ms | 17.45 ± 5.86 ms | 377.65 ± 45.61 ms |
+| 최대 지연 (Max 범위) | 442.96 ms ~ 753.05 ms | 41.02 ms ~ 77.35 ms | 53.35 ms ~ 108.05 ms | 6,401.46 ms ~ 12,417.11 ms |
+| 성공률 (200 OK) | 100.00% | 100.00% | 100.00% | 100.00% |
 
-### 시나리오별 지연 시간(Latency) 상세 프로파일
-
-| 시나리오 | 런타임 상태 | P50 (Med) | P90 | P95 | P99 | Max |
-|---|---|---|---|---|---|---|
-| **A-Cold** (20 VU) | 기동 직후 (L1 Hit) | 4.47ms | 6.75ms | 8.23ms | 14.35ms | 245.94ms |
-| **A-Warm** (20 VU) | JIT 웜업 완료 (L1 Hit) | **4.33ms** | **6.20ms** | **7.09ms** | **9.67ms** | **37.28ms** |
-| **B-Warm** (20 VU) | 웜업 완료 (L1 Miss/L2 Redis) | 5.38ms | 8.32ms | 10.59ms | 19.08ms | 54.87ms |
-| **C-Stress** (500 VU) | 피크 혼합 부하 (80% L1 Miss) | 86.76ms | 216.65ms | 288.30ms | 353.23ms | 4.59s |
-
-> **분석 포인트 1 (계층형 캐시 효율성):** A-Warm과 B-Warm의 P50 지연 차이는 불과 **1.05ms**입니다. 이는 완전 비차단 리액티브 Redis 드라이버 덕분이며, 동시에 L1 Caffeine 적중 시 네트워크 RTT가 완전히 0으로 수렴함을 보여줍니다.  
-> **분석 포인트 2 (JIT 컴파일 수렴):** A-Cold의 최대 지연 245ms가 A-Warm 구간에서 37ms로 급감(-84.8%)하는 JVM 꼬리 지연 수렴 특성을 실증했습니다.  
-> **분석 포인트 3 (시스템 복원력):** C-Stress 시나리오의 500 VU는 단일 코어 환경에서 OS 레벨의 극단적 큐잉(Max 4.59s)을 유발했음에도 불구하고, 단 한 건의 연결 드랍(0%)이나 에러 없이 204,375건의 요청을 모두 소화하여 Netty 엣지 트리거의 강력한 이벤트 루프 복원력을 입증했습니다.
+> **분석 포인트 1 (계층형 캐시 효율성):** A-Warm(L1 Hit)과 B-Warm(L1 Miss, L2 Hit)의 P50 지연 차이는 불과 **1.47ms**입니다. 이는 완전 비차단 리액티브 Redis 드라이버 덕분이며, 동시에 L1 Caffeine 적중 시 네트워크 RTT가 완전히 0으로 수렴함을 보여줍니다.  
+> **분석 포인트 2 (JIT 컴파일 수렴):** A-Cold의 최대 지연(최대 753.05ms)이 A-Warm 구간에서 최대 77.35ms로 급감하는 JVM 꼬리 지연 수렴 특성을 실증했습니다.  
+> **분석 포인트 3 (시스템 복원력):** C-Stress 시나리오의 500 VU는 80%의 의도적 L1 Miss율을 발생시키며 OS 레벨의 극단적 큐잉(Max ~12.4s)을 유발했음에도 불구하고, 단 한 건의 연결 드랍이나 실패(100.00% 성공률) 없이 모든 요청을 안정적으로 소화했습니다.
 
 ### 핵심 Prometheus 지표
 
@@ -256,22 +246,18 @@ curl http://localhost:8081/actuator/health
 
 ---
 
-## 📊 5단계. k6 부하 테스트
+## 📊 5단계. 벤치마크 테스트 (k6 & Python Automation)
+
+단순 스크립트 실행을 넘어 논문 수준의 신뢰성 있는 통계를 얻기 위해 **엄격 분리 5주기 자동화 스크립트**가 제공됩니다. 이 스크립트는 각 시나리오 측정 전 JVM 재기동 및 Redis 플러시를 자동으로 수행합니다.
 
 ```bash
-# 기본 실행
-k6 run benchmark-suite.js
-
-# 결과 내보내기
-k6 run --out json=results.json --out csv=results.csv benchmark-suite.js
-
-# 인증서 경로 명시
-CLIENT_CERT_PATH="./src/main/resources/certs/client.crt" \
-CLIENT_KEY_PATH="./src/main/resources/certs/client.key" \
-k6 run benchmark-suite.js
+# 엄격한 5주기 자동화 벤치마크 실행 (권장)
+python run_strict_benchmark.py
 ```
 
-> `benchmark-suite.js`는 `k6/crypto`를 이용해 `application.yml`의 시크릿 키와 동일한 HS256 JWT를 런타임에 **동적으로 서명·발급**합니다. 별도의 토큰 사전 생성 작업이 필요하지 않습니다.
+* 실행이 완료되면 모든 결과 JSON 및 Markdown 표는 `benchmark-results/` 디렉토리에 저장됩니다.
+
+> `benchmark-suite.js`는 `k6/crypto`를 이용해 `application.yml`의 시크릿 키와 동일한 HS256 JWT를 런타임에 **동적으로 서명·발급**합니다. 자동화 스크립트는 이를 활용해 시나리오별로 5회씩 완전히 독립적으로 테스트를 수행합니다.
 
 ---
 
@@ -292,15 +278,11 @@ k6 run benchmark-suite.js
 
 ## 🎨 쇼케이스 UI 실행 방법 (Showcase Frontend)
 
-프로젝트 기술 스택과 특징을 한눈에 보여주는 정적 쇼케이스 페이지가 포함되어 있습니다.
+프로젝트 기술 스택과 아키텍처 다이어그램, 벤치마크 결과 및 관련 논문(Paper)을 브라우저에서 인터랙티브하게 확인할 수 있습니다.
 
 ```bash
-# 1. showcase 디렉토리 이동
-cd showcase
-
-# 2. 로컬 웹 서버로 정적 파일 호스팅 (Python 3 내장 서버 이용)
-python -m http.server 3000
-# 또는 Node.js 환경의 경우: npx serve .
+# 루트 디렉토리에서 간단히 다음 명령어 실행
+npm start
 ```
 
-* 브라우저에서 `http://localhost:3000` 에 접속하여 Aegis-Mesh 아키텍처 및 주요 기능 소개 페이지를 확인할 수 있습니다.
+* 브라우저가 자동으로 실행되며 `http://localhost:3000` 에서 쇼케이스를 즉시 확인할 수 있습니다.
