@@ -3,58 +3,60 @@ document.addEventListener('DOMContentLoaded', () => {
   const translations = {
     en: {
       subtitle: 'High-Throughput Zero-Trust Architecture',
-      tab1: 'Zero-Trust Ticketing Demo',
-      tab2: 'FIDO2 PoP Pipeline',
-      tab3: 'Architecture & Single-Flight',
+      tab1: 'Zero-Trust Ticketing',
+      tab2: 'FIDO2 PoP Auth',
+      tab3: 'Aegis-Mesh',
       bp_tag_1: 'Production Demo',
       bp_title_1: 'Zero-Trust Ticketing',
       bp_sub_1: 'End-to-end operational flow',
       bp_conn_1: '→',
       bp_tag_2: 'Ingress Security',
-      bp_title_2: 'FIDO2 Hardware PoP',
+      bp_title_2: 'FIDO2 PoP Auth',
       bp_sub_2: 'Fast-fail edge authorization',
       bp_tag_3: 'Concurrency Engine',
-      bp_title_3: 'Aegis-Mesh Reactive Core',
+      bp_title_3: 'Aegis-Mesh',
       bp_sub_3: 'Single-flight & in-process cache',
       bp_caption: 'A unified zero-trust edge gateway integrating hardware-bound identity verification with non-blocking concurrency control for microservice architectures.',
       card_a: 'Without Single-Flight (Baseline)',
       card_b: 'With Aegis-Mesh (Active)',
-      btn_single: 'Single Request',
+      t2_title: 'FIDO2 PoP Authentication Architecture',
+      t2_badge: 'Through performance optimization, latency overhead was suppressed to 25.65%, demonstrating a throughput of 780 RPS.',
+      t2_desc: 'Fast-Fail Verification: Non-blocking reactive chains verify ECDSA P-256 signatures and cryptographically unique nonces, achieving O(1) request dropping in ~0.3ms.',
+      btn_single: 'Send Single Request',
       btn_burst: 'Simulate 500 Burst Spike',
-      btn_reset: 'Reset',
+      btn_reset: 'Reset Metrics',
       btn_paper: 'Read Paper',
-      t3_caption: 'This system trace demonstrates Aegis-Mesh handling 500 simultaneous requests. Only 1 request reaches the backend DB, while the remaining 499 requests coalesce in-flight into the existing reactive stream to receive the cached response immediately with Zero DB I/O.',
+      t3_caption: 'This system trace shows Aegis-Mesh handling 500 concurrent requests. Only 1 request goes to the upstream DB, while the other 499 In-Flight requests coalesce into the existing stream and instantly receive the cached response with Zero I/O overhead.',
       trace_idle: 'Waiting for incoming requests...',
-      ctx_tab2: 'Deep dive into the Ingress Layer — rejects macro replays and session hijacking at the network edge before hitting downstream services.',
-      ctx_tab3: 'Deep dive into the Gateway Core — non-blocking Single-Flight pattern that coalesces 500 concurrent requests into 1 upstream evaluation.',
-      t1_caption: 'Demonstrating how edge authentication and reactive gateway concurrency combine to handle high-traffic reservation bursts without upstream bottlenecks.',
+      ctx_tab2: 'FIDO2 hardware private key isolation is integrated into the reverse proxy gateway. The proposed PoP authentication architecture prevents session hijacking even in token theft or memory compromise scenarios.',
+      ctx_tab3: 'The zero-trust API gateway aegis-mesh completes authorization entirely within the gateway process, eliminating external authorization servers. It cryptographically binds mTLS SPIFFE identities with user JWTs and prevents cache stampedes using an L1(Caffeine)/L2(Redis) tiered cache combined with a Single-Flight pattern.',
+      t1_caption: 'Demonstrating how edge hardware-bound authentication and reactive gateway concurrency combine to handle high-traffic reservation bursts without upstream bottlenecks.',
       t1_legit_header: 'Legitimate Client',
       t1_sys_title: 'System: Dual-Engine Zero-Trust Gateway',
-      t1_sys_badge1: 'Ingress Security: FIDO2 Fast-Fail PoP',
+      t1_sys_badge1: 'Ingress Security: FIDO2 PoP Fast-Fail',
       t1_sys_badge2: 'Concurrency Core: Aegis-Mesh (Reactive Single-Flight & L1 Cache)',
       t1_res_title: 'Ticket Reservation',
       t1_res_desc: 'Select an available seat.',
       t1_btn_reserve: 'Reserve Ticket',
       t1_callout: 'This ticketing interface acts as a live client testing the integrated pipeline: The ingress layer validates client hardware identity to block stolen-token macros at the edge, while Aegis-Mesh coalesces high-concurrency seat reservation bursts to protect upstream databases from cache stampedes.',
-      t1_attack_header: 'Attacker Simulation & Logs',
+      t1_attack_header: 'Attack Simulation & Server Logs',
       t1_macro_title: 'Macro Replay Attack',
-      t1_macro_desc: 'Attacker intercepts a valid JWT and replays it rapidly to snatch tickets.',
-      t1_btn_macro: 'Run Macro',
+      t1_macro_desc: 'Attacker hoards tickets at abnormal speeds using a stolen but valid JWT.',
+      t1_btn_macro: 'Execute Macro',
       t1_tamper_title: 'Payload Tampering',
-      t1_tamper_desc: 'Attacker intercepts JWT and alters the seat ID without a valid FIDO2 signature.',
-      t1_btn_tamper: 'Inject Payload',
+      t1_tamper_desc: 'Attacker alters the Seat ID in a stolen JWT and transmits it.',
+      t1_btn_tamper: 'Inject Tampered Payload',
       t2_title: 'FIDO2 Hardware-Bound Proof-of-Possession',
-      t2_badge: '100 VU benchmark ➔ 780 RPS (+437%), latency reduced by 94%',
       t2_desc: 'Fast-Fail Verification: O(1) sliding window, streaming SHA-256 for rapid rejection.',
-      t3_title: 'Cache Stampede Mitigation (Single-Flight)',
+      t3_title: 'Aegis-Mesh',
       t3_badge: '500 concurrent ingress requests coalesced into 1 upstream query (99.8% downstream I/O reduction)',
-      t3_desc: 'Mitigates cache stampedes under high concurrency by acquiring a non-blocking mutex on the first incoming key. Subsequent identical requests subscribe to the shared reactive publisher (Mono.share()), receiving the broadcasted response upon completion without querying upstream resources.',
+      t3_desc: 'Across five independent repetitions, the L1 cache hit path consistently showed lower latency than the L2 Redis path (P50 5.55ms vs 7.02ms). After warm-up, tail latency converged significantly, and 100% availability was repeatedly confirmed even under 500 VU stress.',
       t3_db: 'Upstream DB I/O',
       t3_pool: 'Connection Pool Usage',
       t3_lat: 'P99 Tail Latency',
-      t3_legend1: 'Leader Executing (~35ms)',
-      t3_legend2: 'In-Flight Coalescing',
-      t3_legend3: 'Resolved & Broadcasted',
+      t3_legend1: 'Leader',
+      t3_legend2: 'In-Flight',
+      t3_legend3: 'Resolved',
       t1_stage: 'STAGE',
       t1_leg_vip: 'VIP',
       t1_leg_reg: 'Regular',
@@ -65,19 +67,20 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     ko: {
       subtitle: '대규모 분산 제로트러스트 게이트웨이 아키텍처',
-      tab1: '제로트러스트 티켓팅 데모',
-      tab2: 'FIDO2 PoP 보안 파이프라인',
-      tab3: '아키텍처 & 단일 비행(Single-Flight)',
+      tab1: '제로트러스트 티켓팅',
+      tab2: 'FIDO2 PoP 인증',
+      tab3: 'Aegis-Mesh',
       bp_tag_1: '통합 데모',
       bp_title_1: '제로트러스트 티켓팅',
       bp_sub_1: '실시간 통합 예매 시나리오',
       bp_conn_1: '→',
       bp_tag_2: '인그레스 보안',
-      bp_title_2: 'FIDO2 하드웨어 PoP',
+      bp_title_2: 'FIDO2 PoP 인증',
       bp_sub_2: '엣지 고속 인가 및 위변조 방어',
+      bp_conn_2: '→',
       bp_tag_3: '동시성 엔진',
-      bp_title_3: 'Aegis-Mesh 리액티브 코어',
-      bp_sub_3: '단일 비행 및 인메모리 캐싱',
+      bp_title_3: 'Aegis-Mesh',
+      bp_sub_3: '단일 비행 & 인프로세스 캐시',
       bp_caption: '하드웨어 기반 신원 검증과 논블로킹 동시성 제어를 통합하여 마이크로서비스 백엔드를 보호하는 제로트러스트 엣지 게이트웨이 아키텍처입니다.',
       card_a: '일반 게이트웨이 (미적용)',
       card_b: 'Aegis-Mesh 적용 (동시성 제어)',
@@ -87,43 +90,40 @@ document.addEventListener('DOMContentLoaded', () => {
       btn_paper: '논문 보기',
       t3_caption: '이 시스템 트레이스는 Aegis-Mesh가 500개의 동시 요청을 처리하는 과정을 보여줍니다. 단 1개의 요청만 백엔드 DB로 전달되며, 나머지 499개 요청은 In-Flight 상태에서 기존 스트림에 병합되어 대기하다 DB 부하 없이(Zero I/O) 캐시된 응답을 즉시 반환받습니다.',
       trace_idle: '인그레스 요청 대기 중...',
-      ctx_tab2: '인그레스 레이어 심층 분석 — 백엔드 도달 전 네트워크 엣지에서 매크로 리플레이 및 세션 하이재킹을 차단합니다.',
-      ctx_tab3: '게이트웨이 코어 심층 분석 — 500개의 동시 요청을 1개의 업스트림 요청으로 병합하는 논블로킹 Single-Flight 패턴입니다.',
+      ctx_tab2: '하드웨어에 개인키를 격리하는 FIDO2와 역방향 프록시 게이트웨이를 결합했습니다. 토큰 탈취나 메모리 침해 상황에서도 세션 하이재킹을 막는 PoP 인증 아키텍처를 제안합니다.',
+      ctx_tab3: '제로 트러스트 API 게이트웨이 aegis-mesh는 외부 인가 서버 없이 게이트웨이 내부에서 인가를 완결합니다. mTLS SPIFFE 신원과 JWT를 결합하고, L1(Caffeine)/L2(Redis) 계층형 캐시와 단일 비행 패턴으로 캐시 스탬피드를 방지합니다.',
       t1_caption: '엣지 하드웨어 바인딩 인증과 게이트웨이 동시성 제어가 결합하여, 백엔드 병목 없이 대규모 예매 트래픽을 처리하는 아키텍처를 시연합니다.',
       t1_legit_header: '정상 클라이언트',
       t1_sys_title: '시스템: 듀얼 엔진 제로트러스트 게이트웨이',
-      t1_sys_badge1: '인그레스 보안: FIDO2 고속 차단 PoP',
-      t1_sys_badge2: '동시성 코어: Aegis-Mesh (리액티브 단일 비행 및 L1 캐시)',
+      t1_sys_badge1: '인그레스 보안: FIDO2 PoP 고속 검증',
+      t1_sys_badge2: '동시성 코어: Aegis-Mesh (리액티브 Single-Flight & L1 캐시)',
       t1_res_title: '티켓 예매',
-      t1_res_desc: '좌석을 선택해 주세요.',
-      t1_btn_reserve: '티켓 예매',
-      t1_callout: '티켓팅 인터페이스는 통합 파이프라인을 테스트하는 라이브 클라이언트 역할을 합니다. 인그레스 엣지에서 탈취된 토큰의 매크로 공격을 차단하고, 게이트웨이 코어에서 대규모 동시성 요청을 병합하여 캐시 스탬피드를 방어합니다.',
-      t1_attack_header: '공격자 시뮬레이션 & 로그',
+      t1_res_desc: '원하시는 좌석을 선택하세요.',
+      t1_btn_reserve: '예매하기',
+      t1_callout: '이 인터페이스는 전체 파이프라인을 테스트하는 라이브 클라이언트입니다. 인그레스 계층은 클라이언트의 하드웨어 신원을 검증하여 탈취된 토큰의 매크로를 엣지에서 즉시 차단하고, Aegis-Mesh는 대규모 예매 동시성 폭주를 병합하여 백엔드 DB를 보호합니다.',
+      t1_attack_header: '공격 시뮬레이션 & 서버 로그',
       t1_macro_title: '매크로 리플레이 공격',
-      t1_macro_desc: '공격자가 유효한 JWT를 탈취하여 티켓을 선점하기 위해 초고속으로 반복 전송합니다.',
+      t1_macro_desc: '공격자가 유효한 JWT를 탈취하여 비정상적인 속도로 매크로를 돌려 표를 싹쓸이합니다.',
       t1_btn_macro: '매크로 실행',
       t1_tamper_title: '페이로드 위변조',
-      t1_tamper_desc: '공격자가 JWT를 탈취한 후 유효한 FIDO2 서명 없이 좌석 ID를 조작합니다.',
-      t1_btn_tamper: '페이로드 주입',
-      t2_title: 'FIDO2 하드웨어 바인딩 Proof-of-Possession',
-      t2_badge: '100 VU 벤치마크 ➔ 780 RPS (+437%), 지연시간 94% 감소',
-      t2_desc: '고속 검증 (Fast-Fail): O(1) 슬라이딩 윈도우 및 고속 차단을 위한 스트리밍 SHA-256 구조를 사용합니다.',
-      t3_title: '캐시 스탬피드 방어 (Single-Flight)',
+      t1_tamper_desc: '공격자가 탈취한 JWT의 좌석 ID를 다른 좌석으로 조작하여 전송합니다.',
+      t1_btn_tamper: '조작 페이로드 주입',
+      t2_title: 'FIDO2 하드웨어 바인딩 인증 (Proof-of-Possession)',
+      t2_badge: '성능 최적화를 통해 지연시간 오버헤드는 25.65%로 억제했고, 초당 780건의 처리량을 실증했습니다.',
+      t2_desc: '고속 차단 (Fast-Fail): 논블로킹 리액티브 체인(Spring WebFlux)을 통해 ECDSA P-256 서명과 암호학적 논스(Nonce)를 검증하고 악성 요청을 0.3ms 이내에 O(1) 시간 복잡도로 즉시 파기합니다.',
+      t3_title: 'Aegis-Mesh',
       t3_badge: '500개의 동시 인그레스 요청을 1개의 업스트림 쿼리로 병합 (다운스트림 I/O 99.8% 절감)',
-      t3_desc: '첫 번째 유입 키에 대해 논블로킹 Mutex를 획득하여 대규모 동시성 환경에서 캐시 스탬피드를 방어합니다. 후속 동일 요청들은 공유된 리액티브 퍼블리셔(Mono.share())를 구독하고, 완료 시 업스트림 쿼리 없이 결과를 브로드캐스트 받습니다.',
+      t3_desc: '시나리오별 5회 독립 반복 측정 결과, L1 캐시 적중이 L2 조회보다 지연이 일관되게 낮았습니다(P50 5.55ms vs 7.02ms). 웜업 후에는 꼬리 지연이 크게 수렴했으며, 500VU 부하에서도 반복적으로 무손실 처리를 확인했습니다.',
       t3_db: '업스트림 DB I/O',
       t3_pool: '커넥션 풀 사용률',
       t3_lat: 'P99 꼬리 지연시간',
-      t3_legend1: '리더 실행 중 (~35ms)',
-      t3_legend2: '비행 중 병합 대기 (In-Flight)',
-      t3_legend3: '완료 및 브로드캐스트',
-      t1_stage: 'STAGE',
+      t3_legend1: '리더 실행',
+      t3_legend2: '스트림 병합',
+      t3_legend3: '응답 완료',
       t1_leg_vip: 'VIP석',
       t1_leg_reg: '일반석',
-      t1_leg_taken: '예매 완료',
       t1_leg_sel: '선택됨',
-      t1_badge_macro: '🚫 매크로 공격 엣지 차단: FIDO2 Nonce 불일치',
-      t1_badge_tamper: '⚠️ 위변조 차단: ECDSA 서명 검증 실패'
+      t1_leg_taken: '예매불가'
     }
   };
 
@@ -221,6 +221,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   function logToTerminal(message, type = 'info') {
+    const idle = terminalLog.querySelector('.idle');
+    if (idle) idle.remove();
     const entry = document.createElement('div');
     entry.className = `log-entry ${type}`;
     entry.innerHTML = `<span class="time">[${getTimestamp()}]</span> ${message}`;
@@ -241,53 +243,59 @@ document.addEventListener('DOMContentLoaded', () => {
     if (checkoutTimeout) clearTimeout(checkoutTimeout);
     
     checkoutTimeout = setTimeout(() => {
-      logToTerminal('[Paper 10 / FIDO2] ECDSA Signature and Nonce freshness verified.', 'info');
-      logToTerminal(`[Aegis-Mesh / Mesh] 200 OK - Seat ${selectedSeatLabel} successfully reserved.`, 'success');
+      logToTerminal('[ContextExtractionFilter] ECDSA Signature and Nonce freshness verified.', 'info');
+      logToTerminal('[Aegis-Mesh] Single-Flight Policy Engine: No concurrent burst detected. Routing to upstream DB.', 'trace');
+      logToTerminal(`[Aegis-Mesh] 200 OK - Seat ${selectedSeatLabel} successfully reserved.`, 'success');
       
       if (selectedSeatNode) {
-        selectedSeatNode.classList.remove('selected');
-        selectedSeatNode.classList.add('confirmed');
-        selectedSeatNode.style.pointerEvents = 'none';
+        selectedSeatNode.className = 'seat taken';
       }
+      
       selectedSeatLabel = null;
       selectedSeatNode = null;
-    }, 600);
+      checkoutBtn.disabled = true;
+    }, 800);
   });
 
   // 2. Macro Replay Attack Simulation
   document.getElementById('btn-simulate-macro').addEventListener('click', () => {
-    logToTerminal('[Attacker] Executing replay script: firing 50 requests with stolen JWT...', 'warning');
+    logToTerminal('[Attacker] Replaying stolen JWT at high speed to hoard tickets (50 req/sec)...', 'warning');
+    
+    setTimeout(() => logToTerminal('[Netty Ingress] POST /api/v1/tickets/reserve (x12 received)', 'trace'), 50);
+    setTimeout(() => logToTerminal('[Netty Ingress] POST /api/v1/tickets/reserve (x24 received)', 'trace'), 150);
+    setTimeout(() => logToTerminal('[Netty Ingress] POST /api/v1/tickets/reserve (x14 received)', 'trace'), 250);
     
     const overlay = document.getElementById('attack-overlay-macro');
-    overlay.className = 'attack-overlay';
-    overlay.innerHTML = `<span data-i18n="t1_badge_macro">${translations[currentLang].t1_badge_macro || '🚫 Macro Replay Blocked: FIDO2 PoP Nonce Mismatch'}</span>`;
+    const targets = document.querySelectorAll('.seat:not(.taken)');
     
-    const targets = [...seatElements].sort(() => 0.5 - Math.random()).slice(0, 10);
+    overlay.className = 'attack-overlay';
     targets.forEach(s => s.classList.add('attack-flash'));
     
     setTimeout(() => {
       overlay.className = 'attack-overlay hidden';
       targets.forEach(s => s.classList.remove('attack-flash'));
-      logToTerminal('[Paper 10 / FIDO2] Macro blocked at edge ingress. Reused nonce detected (0.38ms). Zero seats leaked.', 'success');
+      logToTerminal('[ContextExtractionFilter] DROP: Reused FIDO2 Nonce detected in hardware-bound JWT.', 'error');
+      logToTerminal('[ContextExtractionFilter] 50 concurrent requests rejected in O(1) time (avg 0.38ms). Zero downstream I/O.', 'success');
+      logToTerminal('[Aegis-Mesh] 0 requests reached the mesh core (Isolated at Edge). Backend protected.', 'info');
     }, 600);
   });
 
   // 3. Payload Tampering Simulation
   document.getElementById('btn-simulate-tamper').addEventListener('click', () => {
-    logToTerminal('[Attacker] Injecting tampered JWT (Seat changed without re-signing)...', 'warning');
+    logToTerminal('[Attacker] Intercepting valid JWT and modifying the Seat ID payload to a VIP seat...', 'warning');
     
     const overlay = document.getElementById('attack-overlay-macro');
-    overlay.className = 'attack-overlay tamper';
-    overlay.innerHTML = `<span data-i18n="t1_badge_tamper">${translations[currentLang].t1_badge_tamper || '⚠️ Signature Mismatch: ECDSA Verification Failed'}</span>`;
+    const target = document.querySelector('.seat.vip:not(.taken)');
     
-    const vipSeats = seatElements.filter(s => s.classList.contains('vip') && !s.classList.contains('taken'));
-    const target = vipSeats.length > 0 ? vipSeats[Math.floor(Math.random() * vipSeats.length)] : seatElements[0];
+    overlay.className = 'attack-overlay';
     if (target) target.classList.add('tamper-flash');
     
     setTimeout(() => {
       if (target) target.classList.remove('tamper-flash');
       overlay.className = 'attack-overlay hidden';
-      logToTerminal('[Paper 10 / FIDO2] Request dropped: Hardware signature verification failed (ECDSA P-256).', 'error');
+      logToTerminal('[ContextExtractionFilter] VERIFY FAILED: JWT payload altered without valid private key.', 'error');
+      logToTerminal('[ContextExtractionFilter] Request context aborted. ECDSA P-256 signature verification failed. Returning 401 Unauthorized.', 'error');
+      logToTerminal('[Aegis-Mesh] 0 requests reached the mesh core (Isolated at Edge). Backend protected.', 'info');
     }, 600);
   });
 
@@ -468,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Phase 1: Instant Ingress
     if (isBurst) {
       animateCount(mDbOff, 500, duration);
-      animateCount(mLatOff, 1240, duration);
+      animateCount(mLatOff, 526, duration);
       
       sfTimeouts.push(setTimeout(() => {
         mDbOff.classList.add('text-danger');
@@ -491,18 +499,20 @@ document.addEventListener('DOMContentLoaded', () => {
           if (bar && text) {
             bar.className = 'wf-bar wait active';
             bar.style.width = '15px'; // frozen short
-            text.textContent = 'Waiting on Leader Mutex...';
+            text.textContent = 'Waiting...';
           }
         }
       });
       
       appendLog('trace', '[Ingress] Concurrent burst detected on URI: /api/v1/ticket');
-      for (let i = 1; i <= 6; i++) {
-        appendLog('trace', `[Ingress] Routing Request #${i} to authentication filter...`, i * 5);
-      }
-      appendLog('trace', '[Ingress] ... and 494 more requests arrived simultaneously.', 35);
-      appendLog('trace', '[Single-Flight] Cache Miss! Request #1 acquired the mutex and is promoted as Leader.', 45);
-      appendLog('trace', '[Reactive Mesh] Requests #2 to #500 blocked from backend. Coalesced into shared Mono.share() pipeline.', 55);
+        for (let i = 1; i <= 6; i++) {
+          appendLog('trace', `[Ingress] Routing Request #${i} to authentication filter...`, i * 5);
+        }
+        appendLog('trace', '[Ingress] ... and 494 more requests arrived simultaneously (500 VU Load).', 35);
+        appendLog('trace', '[Aegis-Mesh] Cache Miss on L1(Caffeine) and L2(Redis).', 40);
+        appendLog('trace', '[Single-Flight] Request #1 acquired mutex and is promoted as Leader.', 45);
+        appendLog('trace', '[Reactive Core] Requests #2 to 500 blocked from backend to prevent Cache Stampede.', 55);
+        appendLog('trace', '[Reactive Core] Coalescing 499 In-Flight requests into shared Mono.share() pipeline.', 60);
 
     } else {
       mDbOff.textContent = '1';
@@ -533,13 +543,13 @@ document.addEventListener('DOMContentLoaded', () => {
         leaderBar.className = 'wf-bar leader active';
         leaderBar.style.transition = `width ${duration}ms ease-out`;
         leaderBar.style.width = '80%';
-        leaderText.textContent = 'Upstream DB fetching...';
+        leaderText.textContent = 'DB I/O...';
       }
     }, 20));
 
     // Phase 3: Resolution Snap
     sfTimeouts.push(setTimeout(() => {
-      mLatOn.textContent = isBurst ? '4.1' : '35.0';
+      mLatOn.textContent = isBurst ? '26.9' : '35.0';
       scrubber.style.opacity = '0';
       
       const leaderBar = document.getElementById('wf-bar-1');
@@ -548,7 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
         leaderBar.className = 'wf-bar resolved active';
         leaderBar.style.transition = 'width 0.1s ease-out';
         leaderBar.style.width = '100%';
-        leaderText.textContent = '200 OK - DB Response Received';
+        leaderText.textContent = '200 OK';
       }
       
       if (isBurst) {
@@ -560,18 +570,21 @@ document.addEventListener('DOMContentLoaded', () => {
               bar.className = 'wf-bar resolved active';
               bar.style.transition = 'width 0.1s ease-out';
               bar.style.width = '100%'; 
-              text.textContent = 'Resolved via shared Mono.share()';
+              text.textContent = 'Resolved (0 I/O)';
             }
           }
         });
         if (fanoutBadge) {
-          fanoutBadge.textContent = '⚡ 499 In-Flight Requests Resolved in 0.08ms with 0 Additional DB Queries';
           fanoutBadge.style.opacity = '1';
         }
         if (savedBadge) savedBadge.style.opacity = '1';
         
-        appendLog('trace', '[00:00.035] Upstream: Leader received 200 OK from Auth-Service (35ms roundtrip).');
-        appendLog('success', '[00:00.035] Fan-Out: Emitted cached payload to 499 awaiting subscribers in 0.04ms. Downstream I/O saved: 99.8%.');
+        appendLog('success', '[Single-Flight] Leader response received from upstream DB.');
+          appendLog('success', '[Aegis-Mesh] Populated L1(Caffeine) and L2(Redis) caches.');
+          appendLog('success', '[Fan-Out] Broadcasting payload to 499 awaiting subscribers (Zero I/O Overhead).');
+          appendLog('trace', '[Metric] L1 Cache Hit P50 Latency: 5.55ms | L2 Cache Hit P50 Latency: 7.02ms');
+          appendLog('trace', '[Metric] Benchmark Result: 780 RPS (+437%), latency reduced by 94%.');
+          appendLog('trace', '[Metric] Processed 500 concurrent requests with 0% error rate (100% availability).');
       } else {
         appendLog('success', '[Upstream DB] Successfully fetched data from the backend DB (35ms roundtrip).');
       }

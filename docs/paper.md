@@ -115,31 +115,7 @@ Welsh et al. [8]이 제안한 SEDA(Staged Event-Driven Architecture)는 동시�
 
 `aegis-mesh`는 Spring Cloud Gateway 및 Netty 이벤트 루프 기반으로 구축되었다. 클라이언트의 인바운드 요청은 일련의 논블로킹 필터를 순차적으로 통과한다. 그림 1은 시스템의 전체 요청 처리 파이프라인과 필터 체인 구조를 나타낸다.
 
-```mermaid
-flowchart TD
-    Client((클라이언트)) -->|mTLS Handshake + Bearer JWT| Netty[Netty EventLoop<br>NIO/epoll 비차단 I/O]
-    Netty --> CEFilter[ContextExtractionFilter]
-
-    subgraph Context Extraction
-        CEFilter --> SP[X.509 SAN 파싱<br>SpiffeIdentity]
-        SP --> JWT[JWT 파싱 & 만료 검증]
-        JWT --> Bind[SecurityContextExchange 바인딩]
-    end
-
-    Bind --> PEFilter[PolicyEnforcementFilter]
-
-    subgraph Policy Enforcement
-        PEFilter --> Revoke[RevocationService<br>O1 Invalidation Cache]
-        Revoke --> L1[PolicyEngine L1<br>Caffeine W-TinyLFU]
-        L1 -.->|Cache Miss<br>Single-Flight| L2[(PolicyEngine L2<br>Reactive Redis)]
-        L1 --> Token[DownstreamTokenMinter<br>HMAC-SHA256]
-        L2 --> Token
-    end
-
-    Token --> Downstream[Downstream Route<br>http://localhost:8080 에코 서버]
-```
-
-> **그림 1.** aegis-mesh 리액티브 요청 처리 파이프라인 구조
+![그림 1. aegis-mesh 리액티브 요청 처리 파이프라인 구조](../IMG/IMG_1.png)
 
 ### 3.2 mTLS SPIFFE ID 파싱 및 이중 신원 합성
 
@@ -167,34 +143,7 @@ $$\text{Key} = \text{SHA-256}(\text{spiffeId} \parallel \text{userId} \parallel 
 
 이 구조는 호출 주체 A가 위임자 X의 자격으로 리소스 R에 대해 액션 V를 수행하는 행위 전체를 단일 정책 명제로 검증한다. 따라서 서비스 A가 손상되어 권한 외의 자원에 무단 접근을 시도하더라도, 복합 키 매칭이 실패함으로써 Confused Deputy 공격이 차단된다. 그림 2는 이러한 신원 합성(SPIFFE SAN + JWT) 및 복합 정책 키 생성 흐름을 도식화한 것이다.
 
-```mermaid
-flowchart LR
-    subgraph Input
-        Cert[X.509 인증서]
-        Header[Authorization: Bearer JWT]
-    end
-
-    subgraph Extraction
-        Cert -->|SAN URI type 추출| SpiffeId["spiffe://domain/ns/*/sa/*"]
-        Header -->|서명/만료 검증| UserId["Subject (sub)"]
-    end
-
-    subgraph Synthesis
-        SpiffeId --> Record
-        UserId --> Record
-        Method[HTTP Method] --> Record
-        Path[URI Path] --> Record
-        Record{{"SecurityContextExchange<br>(단일 불변 레코드)"}}
-    end
-
-    subgraph Composite Key Generation
-        Record --> Concat["SpiffeId || UserId || Path || Method"]
-        Concat --> SHA256((SHA-256 해시))
-        SHA256 --> FinalKey[CompositePolicyKey]
-    end
-```
-
-> **그림 2.** 신원 합성(SPIFFE SAN + JWT) 및 복합 정책 키 생성 흐름도
+![그림 2. 신원 합성(SPIFFE SAN + JWT) 및 복합 정책 키 생성 흐름도](../IMG/IMG_2.png)
 
 ### 3.3 계층형(L1/L2) 캐시 아키텍처
 
@@ -222,29 +171,7 @@ L1 캐시 미스 시 호출되는 L2 캐시는 Spring Data Redis Reactive를 기
 
 `PolicyEngine`은 `ConcurrentHashMap<String, Mono<PolicyDecision>>`을 통해 현재 진행 중인 Redis 조회를 추적한다. `computeIfAbsent`의 원자성을 기반으로 동일 키에 대한 질의는 단 하나의 `Mono` 퍼블리셔만 생성한다. 그림 3에서 볼 수 있듯이, 단일 비행 패턴은 다수의 병발 요청을 효율적으로 단일 비동기 스트림으로 병합하고 멀티캐스팅한다.
 
-```mermaid
-sequenceDiagram
-    participant C as 동시 유입 요청 (N개)
-    participant SF as Single-Flight<br/>(ConcurrentHashMap)
-    participant L2 as L2 Reactive Redis
-
-    C->>SF: 1. getPolicyDecision(key) 호출
-    alt 키 미존재 (최초 요청)
-        SF->>L2: 2. computeIfAbsent() - 단일 Mono 생성
-        L2-->>SF: 3. Mono (Pending 상태) 반환
-        SF-->>C: 4. 모든 요청이 동일 Mono 구독
-    else 키 존재 (후속 요청)
-        SF-->>C: 5. 기존 캐시된 Mono 반환 및 구독
-    end
-
-    L2->>SF: 6. Redis 비동기 응답 도착 (onNext)
-    SF->>C: 7. 대기 중인 N개 구독자에게 동시 멀티캐스트
-
-    Note over SF,L2: doFinally() 연산자가 cache() 상류에서 실행됨
-    SF->>SF: 8. inFlight 맵에서 key 제거 (누수 방지)
-```
-
-> **그림 3.** 리액티브 단일 비행(Single-Flight) 패턴의 동시성 병합 메커니즘 도식
+![그림 3. 리액티브 단일 비행(Single-Flight) 패턴의 동시성 병합 메커니즘 도식](../IMG/IMG_3.png)
 
 이 구현에서 연산자의 배치 순서는 메모리 안정성에 중요한 영향을 미친다. `.doFinally()`가 `.cache()` 하류에 위치하면, 클라이언트 연결 조기 종료 등에 따른 구독 취소(CANCEL) 신호가 `.cache()` 내부에서 흡수되어 상류로 온전히 전파되지 못할 위험이 있다. 이 경우 `inFlight` 맵에서 해당 키가 제거되지 않는 메모리 누수가 발생할 수 있다. 따라서 `.doFinally()`를 `.cache()` 상류에 전진 배치하여, 완료(`onComplete`), 오류(`onError`), 취소(`cancel`) 신호 모두에 대해 맵 정리가 안전하게 수행되도록 하였다.
 

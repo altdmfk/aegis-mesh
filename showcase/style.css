@@ -12,7 +12,7 @@
   --warning: #f59e0b;
   --border: #3f3f46; /* Zinc 700 */
   
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: 'Pretendard', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
 }
 
@@ -41,6 +41,7 @@ body {
 
 .app-header {
   margin-bottom: 0.75rem;
+  position: relative;
 }
 
 h1 {
@@ -66,22 +67,23 @@ h1 {
   position: relative;
 }
 .lang-toggle {
-  position: absolute;
-  right: 0;
+    position: absolute;
+    right: 0;
+    top: 5px;
+
   display: flex;
   background-color: var(--bg-panel-light);
-  border-radius: 9999px;
-  padding: 4px;
-  border: 1px solid #334155;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
 }
 .lang-toggle button {
   background: transparent;
   border: none;
   color: #64748b;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  padding: 4px 12px;
-  border-radius: 9999px;
+  padding: 6px 14px;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -171,8 +173,15 @@ h1 {
 }
 
 @media (max-width: 768px) {
+  .tab-btn { min-width: auto; height: auto; line-height: normal; padding: 0.5rem; font-size: 0.9rem; }
   .header-top { flex-direction: column; }
-  .lang-toggle { position: static; margin-top: 10px; }
+  .lang-toggle {
+      position: static;
+      display: flex;
+      width: 120px;
+      margin: 15px auto 10px auto;
+      justify-content: center;
+    }
   .blueprint-flow { flex-direction: column; }
   .bp-box { width: 100%; }
   .bp-conn .desktop-conn { display: none; }
@@ -209,11 +218,16 @@ h1 {
   border: none;
   color: var(--text-muted);
   font-size: 1rem;
-  padding: 0.75rem 1.25rem;
+  height: 48px;
+  line-height: 48px;
+  padding: 0 1.25rem;
+  box-sizing: border-box;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.2s ease;
   font-weight: 500;
+  min-width: 260px;
+  text-align: center;
 }
 
 .tab-btn:hover {
@@ -242,7 +256,10 @@ h1 {
 
 .panel-header {
   background-color: var(--bg-panel-light);
-  padding: 0.75rem 1.25rem;
+  height: 48px;
+  line-height: 48px;
+  padding: 0 1.25rem;
+  box-sizing: border-box;
   font-weight: 600;
   font-size: 0.9rem;
   border-bottom: 1px solid var(--border);
@@ -637,7 +654,10 @@ h1 {
 
 .iframe-header {
   background-color: var(--bg-panel-light);
-  padding: 0.75rem 1.25rem;
+  height: 48px;
+  line-height: 48px;
+  padding: 0 1.25rem;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -659,10 +679,12 @@ iframe {
 .iframe-fallback { display: none; padding: 2rem; text-align: center; }
 
 @media (max-width: 768px) {
+  .tab-btn { min-width: auto; height: auto; line-height: normal; padding: 0.5rem; font-size: 0.9rem; }
   iframe { display: none; }
   .iframe-fallback { display: block; }
-  .demo-container { grid-template-columns: 1fr; }
+  .demo-container { grid-template-columns: 1fr; min-height: auto; }
   .action-card { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    .sf-term-body.tab1-term { height: 250px !important; flex: none !important; }
 }
 
 /* Tab 3: Architecture */
@@ -793,7 +815,7 @@ iframe {
   min-width: 600px;
 }
 
-.legend { display: flex; gap: 0.5rem; }
+.legend { flex-shrink: 0; display: flex; gap: 0.5rem; }
 .legend-item { display: flex; align-items: center; gap: 0.4rem; color: #888; }
 .box { width: 10px; height: 10px; border-radius: 2px; }
 .box.blue { background-color: #2563eb; }
@@ -801,9 +823,11 @@ iframe {
 .box.green { background-color: #059669; }
 
 .timeline-ruler {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
+    display: flex;
+    justify-content: space-between;
+    flex: 1;
+    margin-left: 2rem;
+    min-width: 0;
   color: #666;
   font-family: var(--font-mono);
 }
@@ -966,6 +990,12 @@ iframe {
   font-weight: 500;
   letter-spacing: 0;
 }
+
+.sf-term-body.tab1-term {
+  height: 0;
+  flex: 1 1 0;
+  min-height: 0;
+}
 .sf-term-body {
   height: 165px;
   overflow-y: auto;
@@ -974,12 +1004,6 @@ iframe {
   font-size: 13px;
   color: #cbd5e1;
   word-wrap: break-word;
-}
-.sf-term-body.tab1-term {
-  height: 100%;
-  flex: 1;
-  min-height: 0;
-  max-height: none;
 }
 .sf-term-body::-webkit-scrollbar { width: 6px; height: 6px; }
 .sf-term-body::-webkit-scrollbar-track { background: transparent; }
