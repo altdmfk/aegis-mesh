@@ -37,6 +37,8 @@ public class DownstreamTokenMinter {
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .subject(userId)
                     .claim("spiffe_id", spiffeId)
+                    .jwtID(java.util.UUID.randomUUID().toString())
+                    .audience("aegis-internal-mesh")
                     .issueTime(new Date())
                     .expirationTime(new Date(System.currentTimeMillis() + 60_000L)) // 60s TTL
                     .build();

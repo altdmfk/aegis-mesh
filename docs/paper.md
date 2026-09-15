@@ -127,7 +127,7 @@ Welsh et al. [8]이 제안한 SEDA(Staged Event-Driven Architecture)는 동시�
 
 #### 3.2.2 JWT 검증 및 불변 신원 바인딩
 
-mTLS 검증을 통과한 요청의 `Authorization` 헤더에서 Bearer 토큰을 추출한다. RFC 7519 [12] 명세에 따라 토큰 서명, 유효 기간(`exp`), 주체(`sub`)를 파싱하며, 분산 노드 간 시계 오차를 고려해 60초의 마진(Clock Skew)을 부여한다.
+mTLS 검증을 통과한 요청의 `Authorization` 헤더에서 Bearer 토큰을 추출한다. 본 시스템은 CPU 자원 고갈 공격(Crypto DoS)을 방어하기 위해, 연산 비용이 높은 암호학적 서명 검증을 수행하기 전에 JWT를 단순 디코딩하여 토큰 고유 식별자(JTI)를 먼저 추출하고, O(1) 시간 복잡도의 블랙리스트 조회를 통해 무효화 여부를 우선 대조한다. 블랙리스트에 존재하지 않는 토큰에 한하여 RFC 7519 [12] 명세에 따라 서명, 유효 기간(`exp`), 주체(`sub`), 발급자(`iss`), 수신자(`aud`)를 엄격하게 검증하며, 분산 노드 간 시계 오차를 고려해 60초의 마진(Clock Skew)을 부여한다.
 
 추출된 서비스 신원과 사용자 신원은 다음 구조의 단일 불변 레코드 `SecurityContextExchange`로 합성된다:
 
@@ -137,9 +137,9 @@ Java 레코드의 불변성(Immutability)은 다수의 이벤트 루프 스레�
 
 #### 3.2.3 Confused Deputy 공격 차단
 
-시스템은 서비스 신원과 사용자 신원을 독립적으로 평가하지 않고, 복합 정책 키(`CompositePolicyKey`)로 결합하여 하나의 원자적 단위로 인가를 평가한다:
+시스템은 서비스 신원과 사용자 신원을 독립적으로 평가하지 않고, 복합 정책 키(`CompositePolicyKey`)로 결합하여 하나의 원자적 단위로 인가를 평가한다. 이때 해시 충돌(Hash Collision)을 악용한 정책 우회를 원천 차단하기 위해, 각 필드 사이에 명시적인 길이 접두사(Length-prefix)와 고정 구분자를 삽입하여 직렬화한 뒤 해싱을 수행한다:
 
-$$\text{Key} = \text{SHA-256}(\text{spiffeId} \parallel \text{userId} \parallel \text{resource} \parallel \text{action})$$
+$$\text{Key} = \text{SHA-256}(\text{len(sId)}\!:\!\text{sId} \parallel \text{len(uId)}\!:\!\text{uId} \parallel \text{len(res)}\!:\!\text{res} \parallel \text{len(act)}\!:\!\text{act})$$
 
 이 구조는 호출 주체 A가 위임자 X의 자격으로 리소스 R에 대해 액션 V를 수행하는 행위 전체를 단일 정책 명제로 검증한다. 따라서 서비스 A가 손상되어 권한 외의 자원에 무단 접근을 시도하더라도, 복합 키 매칭이 실패함으로써 Confused Deputy 공격이 차단된다. 그림 2는 이러한 신원 합성(SPIFFE SAN + JWT) 및 복합 정책 키 생성 흐름을 도식화한 것이다.
 
@@ -177,7 +177,7 @@ L1 캐시 미스 시 호출되는 L2 캐시는 Spring Data Redis Reactive를 기
 
 ### 3.5 내부 토큰 전환 및 오프힙 메모리 안전성
 
-인가가 승인된 요청에 대해 `DownstreamTokenMinter`는 HMAC-SHA256으로 서명된 60초 만료의 내부 전용 토큰을 발급한다. 게이트웨이는 원본 클라이언트 토큰을 헤더에서 제거하고 `X-Internal-Identity` 헤더로 변환된 토큰을 주입한다(RFC 9110 [14]). 이를 통해 내부 마이크로서비스는 연산 비용이 높은 비대칭 키 검증 대신 경량 대칭키 검증만을 수행할 수 있다. 서명 키는 `AtomicReference<ActiveKey>`로 관리되며 JWS `kid` 헤더를 통해 무중단 키 회전(Key Rotation)을 지원한다.
+인가가 승인된 요청에 대해 `DownstreamTokenMinter`는 HMAC-SHA256으로 서명된 60초 만료의 내부 전용 토큰을 발급한다. 내부망에서의 토큰 재전송(Replay) 공격을 방지하기 위해, 발급되는 토큰에는 고유 식별자(JTI)를 부여하고 대상 서비스(`aud`)를 명시적으로 바인딩한다. 게이트웨이는 원본 클라이언트 토큰을 헤더에서 제거하고 `X-Internal-Identity` 헤더로 변환된 토큰을 주입한다(RFC 9110 [14]). 이를 통해 내부 마이크로서비스는 연산 비용이 높은 비대칭 키 검증 대신 경량 대칭키 검증만을 수행할 수 있다. 서명 키는 `AtomicReference<ActiveKey>`로 관리되며 JWS `kid` 헤더를 통해 무중단 키 회전(Key Rotation)을 지원한다.
 
 아울러 Netty의 `DirectByteBuf`를 사용하는 오프힙 환경에서 에러 응답 버퍼 할당 시 발생하는 메모리 누수를 방지하기 위해, 오류 응답 경로(Error Response Path)에 한하여 데이터 버퍼의 생성 시점을 `Mono.fromCallable()`을 통해 실제 HTTP 전송 구독 시점까지 지연(Deferred Allocation)시키는 방식을 적용하였다.
 
@@ -292,6 +292,16 @@ L1 캐시 미스 시 호출되는 L2 캐시는 Spring Data Redis Reactive를 기
 ### 5.5 Java 가상 스레드 런타임 이관 검토
 
 본 시스템은 Netty 기반의 순수 리액티브 모델을 채택하고 Java 21 가상 스레드(Project Loom)를 도입하지 않았다. Java 21 환경의 가상 스레드는 피닝(Pinning) 제약을 가지고 있었으나, JDK 24에서 확정된 JEP 491을 통해 해당 제약이 해소되었다. 따라서 향후 런타임을 JDK 24 이상으로 전환할 경우, 외부 정책 DB 질의와 같은 폴백(Fallback) 블로킹 I/O 경로에서 가상 스레드와 리액티브 파이프라인을 결합한 하이브리드 모델의 적용을 재검토할 필요가 있다.
+
+### 5.6 권한 무효화 아키텍처의 분산 환경 한계
+
+본 연구의 `RevocationService`는 단일 인스턴스 내에서 Caffeine 캐시 기반의 O(1) 블랙리스트 조회를 수행하도록 설계되었다. 그러나 이 구조는 다중 게이트웨이 인스턴스로 구성된 분산 환경에서 두 가지 한계를 지닌다.
+
+첫째, 게이트웨이 노드에 네트워크 순단이 발생할 경우, Redis Pub/Sub의 Fire-and-Forget 특성상 전달되지 못한 권한 무효화 이벤트는 재전송되지 않고 유실된다. 이 경우 해당 노드는 이미 취소된 토큰을 계속 유효한 것으로 판단하는 상태 불일치(Silent Stale Cache)에 놓일 수 있다.
+
+둘째, 로컬 블랙리스트 캐시의 용량은 최대 10만 개 엔트리로 제한되어 있다. 무효화된 토큰 수가 이 한도를 초과하면 W-TinyLFU 방출 정책에 따라 상대적으로 오래되거나 접근 빈도가 낮은 블랙리스트 항목이 축출될 수 있다. 이 경우 이미 취소되었던 토큰이 캐시에서 밀려나 다시 유효한 것으로 오인되어 통과되는 상태 고갈(State Exhaustion) 취약점이 발생할 수 있다.
+
+향후 시스템 고도화 시 Redis Streams(`XREADGROUP`)를 도입하여 무효화 메시지의 전달을 보장(guaranteed delivery)하고, L1 캐시 미스 시 L2 Redis Set으로 폴백(Fallback) 조회하는 이중 확인 구조를 도입함으로써 위 두 한계를 완화할 수 있을 것으로 판단된다.
 
 ---
 

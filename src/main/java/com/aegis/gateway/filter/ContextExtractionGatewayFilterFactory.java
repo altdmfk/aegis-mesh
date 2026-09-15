@@ -28,13 +28,21 @@ public class ContextExtractionGatewayFilterFactory extends AbstractGatewayFilter
     public static final String CONTEXT_KEY = "security_context_exchange";
     private static final Pattern SPIFFE_PATTERN = Pattern.compile("^spiffe://[^/]+/ns/([^/]+)/sa/([^/]+)$");
     private final MeterRegistry meterRegistry;
-
     private final String secretKey;
+    private final com.aegis.gateway.policy.RevocationService revocationService;
 
     public ContextExtractionGatewayFilterFactory(MeterRegistry meterRegistry, @org.springframework.beans.factory.annotation.Value("${gateway.security.secret-key}") String secretKey) {
+        this(meterRegistry, secretKey, null);
+    }
+
+    public ContextExtractionGatewayFilterFactory(
+            MeterRegistry meterRegistry,
+            @org.springframework.beans.factory.annotation.Value("${gateway.security.secret-key}") String secretKey,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) com.aegis.gateway.policy.RevocationService revocationService) {
         super(Config.class);
         this.meterRegistry = meterRegistry;
         this.secretKey = secretKey;
+        this.revocationService = revocationService;
     }
 
     @Override
@@ -57,7 +65,16 @@ public class ContextExtractionGatewayFilterFactory extends AbstractGatewayFilter
             String token = authHeader.substring(7);
             UserTokenIdentity userIdentity;
             try {
+                // 1. Parse token WITHOUT verification (extract JTI for O(1) blacklist check to prevent Crypto DoS)
                 SignedJWT signedJWT = SignedJWT.parse(token);
+                String jti = signedJWT.getJWTClaimsSet().getJWTID();
+                
+                if (jti != null && revocationService != null && revocationService.isRevoked(jti)) {
+                    meterRegistry.counter("aegis.security.auth.rejections", "reason", "revoked_jwt").increment();
+                    return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Token has been revoked");
+                }
+                
+                // 2. Perform expensive cryptographic signature verification
                 JWSVerifier verifier = new MACVerifier(secretKey.getBytes());
                 
                 if (!signedJWT.verify(verifier)) {
@@ -65,6 +82,7 @@ public class ContextExtractionGatewayFilterFactory extends AbstractGatewayFilter
                     return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Invalid Token Signature");
                 }
                 
+                // 3. Strict claims validation (exp, sub, iss, aud)
                 java.util.Date exp = signedJWT.getJWTClaimsSet().getExpirationTime();
                 if (exp != null) {
                     long now = System.currentTimeMillis();
@@ -80,7 +98,18 @@ public class ContextExtractionGatewayFilterFactory extends AbstractGatewayFilter
                     meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_jwt").increment();
                     return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Missing User Subject in Token");
                 }
-                String jti = signedJWT.getJWTClaimsSet().getJWTID();
+                
+                String iss = signedJWT.getJWTClaimsSet().getIssuer();
+                List<String> aud = signedJWT.getJWTClaimsSet().getAudience();
+                if (iss != null && iss.isBlank()) {
+                    meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_claims").increment();
+                    return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Invalid Token Issuer");
+                }
+                if (aud != null && aud.isEmpty()) {
+                    meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_claims").increment();
+                    return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Invalid Token Audience");
+                }
+
                 userIdentity = new UserTokenIdentity(sub, jti, List.of());
             } catch (Exception e) {
                 meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_jwt").increment();

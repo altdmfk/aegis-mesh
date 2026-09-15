@@ -4,8 +4,11 @@ import java.io.Serializable;
 
 public record CompositePolicyKey(String spiffeId, String userId, String resource, String action) implements Serializable {
     public String toHashedKey() {
-        String raw = spiffeId + ":" + userId + ":" + resource + ":" + action;
-        return com.aegis.gateway.util.HashUtil.sha256Hex(raw);
+        String canonical = spiffeId.length() + ":" + spiffeId + "|"
+                         + userId.length() + ":" + userId + "|"
+                         + resource.length() + ":" + resource + "|"
+                         + action.length() + ":" + action;
+        return com.aegis.gateway.util.HashUtil.sha256Hex(canonical);
     }
     
     @Override
