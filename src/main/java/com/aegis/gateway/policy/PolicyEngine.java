@@ -31,12 +31,14 @@ public class PolicyEngine {
                     }
                     return decision;
                 })
+                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
                 .switchIfEmpty(Mono.defer(() -> {
                     meterRegistry.counter("aegis.policy.cache.l1.misses").increment();
                     boolean[] deduplicated = { true };
                     Mono<PolicyDecision> result = inFlight.computeIfAbsent(hashedKey, k -> {
                         deduplicated[0] = false;
                         return l2CacheService.getPolicyDecision(rawKey)
+                            .defaultIfEmpty(PolicyDecision.DENY)
                             .doOnNext(decision -> l1PolicyCache.put(hashedKey, decision))
                             .transformDeferred(mono -> Mono.defer(() -> {
                                 Timer.Sample sample = Timer.start(meterRegistry);

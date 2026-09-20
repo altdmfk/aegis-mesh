@@ -50,7 +50,7 @@ public class PolicyEnforcementGatewayFilterFactory extends AbstractGatewayFilter
             } else if (context.serviceIdentity() == null) {
                 throw new IllegalStateException("Service Identity missing");
             } else {
-                spiffeId = "ANONYMOUS_SERVICE";
+                throw new IllegalStateException("Unexpected identity type: " + context.serviceIdentity().getClass());
             }
 
             final String userId;
@@ -61,8 +61,7 @@ public class PolicyEnforcementGatewayFilterFactory extends AbstractGatewayFilter
             } else if (context.userIdentity() == null) {
                 throw new IllegalStateException("User Identity missing");
             } else {
-                userId = "ANONYMOUS_USER";
-                jti = null;
+                throw new IllegalStateException("Unexpected user identity type: " + context.userIdentity().getClass());
             }
 
             if (revocationService.isRevoked(spiffeId) || (jti != null && revocationService.isRevoked(jti))) {
@@ -80,14 +79,15 @@ public class PolicyEnforcementGatewayFilterFactory extends AbstractGatewayFilter
             return policyEngine.evaluate(policyKey)
                     .flatMap(decision -> {
                         if (decision == PolicyDecision.ALLOW) {
-                            String internalToken = tokenMinter.mintInternalToken(spiffeId, userId);
-                            
-                            ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
-                                    .headers(headers -> headers.remove(HttpHeaders.AUTHORIZATION))
-                                    .header("X-Internal-Identity", internalToken)
-                                    .build();
-                            
-                            return chain.filter(exchange.mutate().request(mutatedRequest).build());
+                            return tokenMinter.mintInternalToken(spiffeId, userId)
+                                .flatMap(internalToken -> {
+                                    ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                                            .headers(headers -> headers.remove(HttpHeaders.AUTHORIZATION))
+                                            .header("X-Internal-Identity", internalToken)
+                                            .build();
+                                    
+                                    return chain.filter(exchange.mutate().request(mutatedRequest).build());
+                                });
                         } else {
                             meterRegistry.counter("aegis.security.auth.rejections", "reason", "policy_deny").increment();
                             meterRegistry.counter("aegis.security.dual_identity.confused_deputy_blocks").increment();

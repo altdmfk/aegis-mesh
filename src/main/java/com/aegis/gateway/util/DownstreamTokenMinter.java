@@ -24,16 +24,16 @@ public class DownstreamTokenMinter {
         if (secretKey == null || secretKey.length() < 32) {
             throw new IllegalArgumentException("Secret key must be at least 256 bits for HS256");
         }
-        activeKeyRef.set(new ActiveKey(kid, new MACSigner(secretKey.getBytes())));
+        activeKeyRef.set(new ActiveKey(kid, new MACSigner(secretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8))));
     }
 
-    public String mintInternalToken(String spiffeId, String userId) {
-        ActiveKey currentKey = activeKeyRef.get();
-        if (currentKey == null) {
-            throw new IllegalStateException("Secret key state is uninitialized. Deny by default.");
-        }
+    public reactor.core.publisher.Mono<String> mintInternalToken(String spiffeId, String userId) {
+        return reactor.core.publisher.Mono.fromCallable(() -> {
+            ActiveKey currentKey = activeKeyRef.get();
+            if (currentKey == null) {
+                throw new IllegalStateException("Secret key state is uninitialized. Deny by default.");
+            }
 
-        try {
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .subject(userId)
                     .claim("spiffe_id", spiffeId)
@@ -52,9 +52,7 @@ public class DownstreamTokenMinter {
             signedJWT.sign(currentKey.signer());
             
             return signedJWT.serialize(); // standard JWT, kid is in the header
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to mint internal token", e);
-        }
+        }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
     }
 
     private record ActiveKey(String kid, MACSigner signer) {}

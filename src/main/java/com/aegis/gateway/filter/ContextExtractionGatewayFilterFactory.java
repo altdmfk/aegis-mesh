@@ -63,69 +63,89 @@ public class ContextExtractionGatewayFilterFactory extends AbstractGatewayFilter
             }
 
             String token = authHeader.substring(7);
-            UserTokenIdentity userIdentity;
-            try {
-                // 1. Parse token WITHOUT verification (extract JTI for O(1) blacklist check to prevent Crypto DoS)
-                SignedJWT signedJWT = SignedJWT.parse(token);
-                String jti = signedJWT.getJWTClaimsSet().getJWTID();
-                
-                if (jti != null && revocationService != null && revocationService.isRevoked(jti)) {
-                    meterRegistry.counter("aegis.security.auth.rejections", "reason", "revoked_jwt").increment();
-                    return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Token has been revoked");
+            return reactor.core.publisher.Mono.fromCallable(() -> {
+                try {
+                    // 1. Parse token (extract JTI for O(1) blacklist check to prevent Crypto DoS)
+                    SignedJWT signedJWT = SignedJWT.parse(token);
+                    String jti = signedJWT.getJWTClaimsSet().getJWTID();
+                    
+                    if (jti != null && revocationService != null && revocationService.isRevoked(jti)) {
+                        return "revoked_jwt";
+                    }
+                    
+                    // 2. Perform cryptographic signature verification with explicit UTF-8 charset
+                    JWSVerifier verifier = new MACVerifier(secretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    if (!signedJWT.verify(verifier)) {
+                        return "invalid_signature";
+                    }
+                    
+                    // 3. Strict claims validation (exp, sub, iss, aud)
+                    java.util.Date exp = signedJWT.getJWTClaimsSet().getExpirationTime();
+                    if (exp != null) {
+                        long now = System.currentTimeMillis();
+                        long maxClockSkewMs = 60_000L;
+                        if (now > exp.getTime() + maxClockSkewMs) {
+                            return "expired_jwt";
+                        }
+                    }
+
+                    String sub = signedJWT.getJWTClaimsSet().getSubject();
+                    if (sub == null) {
+                        return "missing_sub";
+                    }
+
+                    String iss = signedJWT.getJWTClaimsSet().getIssuer();
+                    List<String> aud = signedJWT.getJWTClaimsSet().getAudience();
+                    if (iss != null && iss.isBlank()) {
+                        return "invalid_issuer";
+                    }
+                    if (aud != null && aud.isEmpty()) {
+                        return "invalid_audience";
+                    }
+
+                    return new UserTokenIdentity(sub, jti, List.of());
+                } catch (Exception e) {
+                    return "invalid_jwt_exception";
                 }
-                
-                // 2. Perform expensive cryptographic signature verification
-                JWSVerifier verifier = new MACVerifier(secretKey.getBytes());
-                
-                if (!signedJWT.verify(verifier)) {
-                    meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_signature").increment();
-                    return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Invalid Token Signature");
-                }
-                
-                // 3. Strict claims validation (exp, sub, iss, aud)
-                java.util.Date exp = signedJWT.getJWTClaimsSet().getExpirationTime();
-                if (exp != null) {
-                    long now = System.currentTimeMillis();
-                    long maxClockSkewMs = 60_000L;
-                    if (now > exp.getTime() + maxClockSkewMs) {
+            })
+            .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+            .flatMap(result -> {
+                if (result instanceof String reason) {
+                    if ("revoked_jwt".equals(reason)) {
+                        meterRegistry.counter("aegis.security.auth.rejections", "reason", "revoked_jwt").increment();
+                        return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Token has been revoked");
+                    } else if ("invalid_signature".equals(reason)) {
+                        meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_signature").increment();
+                        return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Invalid Token Signature");
+                    } else if ("expired_jwt".equals(reason)) {
                         meterRegistry.counter("aegis.security.auth.rejections", "reason", "expired_jwt").increment();
                         return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Token Expired");
+                    } else if ("missing_sub".equals(reason)) {
+                        meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_jwt").increment();
+                        return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Missing User Subject in Token");
+                    } else if ("invalid_issuer".equals(reason)) {
+                        meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_claims").increment();
+                        return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Invalid Token Issuer");
+                    } else if ("invalid_audience".equals(reason)) {
+                        meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_claims").increment();
+                        return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Invalid Token Audience");
+                    } else {
+                        meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_jwt").increment();
+                        return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Invalid User Token");
                     }
                 }
 
-                String sub = signedJWT.getJWTClaimsSet().getSubject();
-                if (sub == null) {
-                    meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_jwt").increment();
-                    return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Missing User Subject in Token");
-                }
-                
-                String iss = signedJWT.getJWTClaimsSet().getIssuer();
-                List<String> aud = signedJWT.getJWTClaimsSet().getAudience();
-                if (iss != null && iss.isBlank()) {
-                    meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_claims").increment();
-                    return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Invalid Token Issuer");
-                }
-                if (aud != null && aud.isEmpty()) {
-                    meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_claims").increment();
-                    return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Invalid Token Audience");
-                }
+                UserTokenIdentity userIdentity = (UserTokenIdentity) result;
+                SecurityContextExchange securityContext = new SecurityContextExchange(
+                        serviceIdentity,
+                        userIdentity,
+                        request.getMethod().name(),
+                        request.getPath().value()
+                );
 
-                userIdentity = new UserTokenIdentity(sub, jti, List.of());
-            } catch (Exception e) {
-                meterRegistry.counter("aegis.security.auth.rejections", "reason", "invalid_jwt").increment();
-                return ErrorResponseUtil.writeProblemResponse(exchange, HttpStatus.UNAUTHORIZED, "Invalid User Token");
-            }
-
-            SecurityContextExchange securityContext = new SecurityContextExchange(
-                    serviceIdentity,
-                    userIdentity,
-                    request.getMethod().name(),
-                    request.getPath().value()
-            );
-
-            exchange.getAttributes().put(CONTEXT_KEY, securityContext);
-
-            return chain.filter(exchange);
+                exchange.getAttributes().put(CONTEXT_KEY, securityContext);
+                return chain.filter(exchange);
+            });
         };
     }
 
@@ -148,7 +168,7 @@ public class ContextExtractionGatewayFilterFactory extends AbstractGatewayFilter
                             if (matcher.matches()) {
                                 return new SpiffeIdentity(uri, matcher.group(1), matcher.group(2));
                             }
-                            return new SpiffeIdentity(uri, "unknown", "unknown");
+                            return null;
                         }
                     }
                 }

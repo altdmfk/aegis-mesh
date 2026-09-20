@@ -33,7 +33,11 @@ public class RevocationService {
                         revokedCache.put(revokedId, Boolean.TRUE);
                     }
                 })
-                .subscribe(); // Non-blocking subscription on EventLoop
+                .subscribe(
+                        null,
+                        error -> org.slf4j.LoggerFactory.getLogger(RevocationService.class).error("Revocation subscription died", error),
+                        () -> org.slf4j.LoggerFactory.getLogger(RevocationService.class).warn("Revocation subscription completed unexpectedly")
+                );
     }
 
     public boolean isRevoked(String id) {

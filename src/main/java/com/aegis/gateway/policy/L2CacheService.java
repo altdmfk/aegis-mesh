@@ -25,7 +25,13 @@ public class L2CacheService {
 
     public Mono<PolicyDecision> getPolicyDecision(String rawKeyStr) {
         return redisTemplate.opsForValue().get("policy:" + rawKeyStr)
-                .map(PolicyDecision::valueOf)
+                .map(val -> {
+                    try {
+                        return PolicyDecision.valueOf(val);
+                    } catch (IllegalArgumentException e) {
+                        return PolicyDecision.DENY;
+                    }
+                })
                 .switchIfEmpty(Mono.defer(() -> {
                     boolean allowed = policyAllowlist.stream().anyMatch(pattern -> 
                         new org.springframework.util.AntPathMatcher().match(pattern, rawKeyStr)

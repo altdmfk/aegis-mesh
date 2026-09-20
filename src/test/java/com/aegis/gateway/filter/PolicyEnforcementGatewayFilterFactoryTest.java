@@ -63,7 +63,7 @@ class PolicyEnforcementGatewayFilterFactoryTest extends BaseBlockHoundTest {
         exchange.getAttributes().put(ContextExtractionGatewayFilterFactory.CONTEXT_KEY, context);
 
         when(policyEngine.evaluate(any(CompositePolicyKey.class))).thenReturn(Mono.just(PolicyDecision.ALLOW));
-        when(tokenMinter.mintInternalToken("spiffe://service-a", "user123")).thenReturn("hmac-token-123");
+        when(tokenMinter.mintInternalToken("spiffe://service-a", "user123")).thenReturn(reactor.core.publisher.Mono.just("hmac-token-123"));
         when(revocationService.isRevoked(anyString())).thenReturn(false);
 
         GatewayFilterChain chain = ex -> {

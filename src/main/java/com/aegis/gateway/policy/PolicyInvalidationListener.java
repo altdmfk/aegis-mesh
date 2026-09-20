@@ -23,12 +23,19 @@ public class PolicyInvalidationListener {
                     if (message != null) {
                         if (message.endsWith("*")) {
                             String prefix = message.substring(0, message.length() - 1);
-                            l1PolicyCache.asMap().keySet().removeIf(key -> key.startsWith(prefix));
+                            java.util.List<String> keys = l1PolicyCache.asMap().keySet().stream()
+                                    .filter(key -> key.startsWith(prefix))
+                                    .toList();
+                            l1PolicyCache.invalidateAll(keys);
                         } else {
                             l1PolicyCache.invalidate(message);
                         }
                     }
                 })
-                .subscribe(); // Non-blocking subscription on EventLoop
+                .subscribe(
+                        null,
+                        error -> org.slf4j.LoggerFactory.getLogger(PolicyInvalidationListener.class).error("Policy invalidation subscription died", error),
+                        () -> org.slf4j.LoggerFactory.getLogger(PolicyInvalidationListener.class).warn("Policy invalidation subscription completed unexpectedly")
+                );
     }
 }

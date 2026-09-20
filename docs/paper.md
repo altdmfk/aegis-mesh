@@ -141,6 +141,8 @@ Java 레코드의 불변성(Immutability)은 다수의 이벤트 루프 스레�
 
 $$\text{Key} = \text{SHA-256}(\text{len(sId)}\!:\!\text{sId} \parallel \text{len(uId)}\!:\!\text{uId} \parallel \text{len(res)}\!:\!\text{res} \parallel \text{len(act)}\!:\!\text{act})$$
 
+이 해시 연산은 가변 길이의 복합 식별자를 고정 크기 256비트 캐시 키로 단축하기 위한 인덱스 산출 목적으로 수행된다. 인가 결정의 실질적 암호학적 근거는 앞서 수행된 mTLS X.509 인증서 체인 검증과 JWT HMAC-SHA256 서명 검증 단계에서 이미 확립되며, 복합 키는 이 두 검증을 통과한 신원 정보를 단일 캐시 엔트리로 통합하는 역할을 담당한다.
+
 이 구조는 호출 주체 A가 위임자 X의 자격으로 리소스 R에 대해 액션 V를 수행하는 행위 전체를 단일 정책 명제로 검증한다. 따라서 서비스 A가 손상되어 권한 외의 자원에 무단 접근을 시도하더라도, 복합 키 매칭이 실패함으로써 Confused Deputy 공격이 차단된다. 그림 2는 이러한 신원 합성(SPIFFE SAN + JWT) 및 복합 정책 키 생성 흐름을 도식화한 것이다.
 
 ![그림 2. 신원 합성(SPIFFE SAN + JWT) 및 복합 정책 키 생성 흐름도](../IMG/IMG_2.png)
@@ -151,16 +153,17 @@ $$\text{Key} = \text{SHA-256}(\text{len(sId)}\!:\!\text{sId} \parallel \text{len
 
 L1 캐시는 JVM 힙 내에 최대 10,000개 엔트리를 유지하도록 구성된다. 캐시 방출 정책으로는 Einziger et al. [13]이 제안한 W-TinyLFU(Window TinyLFU) 알고리즘이 적용된다. W-TinyLFU는 Count-Min Sketch를 기반으로 항목의 접근 빈도를 추정하며, 적은 메모리 오버헤드로 높은 캐시 적중률을 나타낸다. W-TinyLFU는 `maximumSize` 설정 시 Caffeine의 내장 기본 동작으로 적용되며, 이를 활성화하기 위한 별도의 API 호출은 요구되지 않는다.
 
-데이터 최신성을 유지하기 위해 기본 5분의 TTL 외에 Redis Pub/Sub 기반의 `PolicyInvalidationListener`를 구동한다. 권한 회수나 정책 수정 발생 시 무효화 이벤트가 브로드캐스트되며, 게이트웨이 인스턴스는 해당 복합 키를 L1 캐시에서 즉시 축출한다.
+데이터 최신성을 유지하기 위해 기본 5분의 TTL 외에 Redis Pub/Sub 기반의 `PolicyInvalidationListener`를 구동한다. 권한 회수나 정책 수정 발생 시 무효화 이벤트가 브로드캐스트되며, 게이트웨이 인스턴스는 해당 복합 키를 L1 캐시에서 즉시 축출한다. 무효화 메시지가 와일드카드 접미사(`*`)를 포함하는 경우, 해당 접두사에 매칭되는 모든 캐시 엔트리를 일괄 축출하는 접두사 매칭 무효화를 지원한다. 이를 통해 특정 서비스 계정 또는 네임스페이스 단위의 정책 일괄 회수를 단일 이벤트로 처리할 수 있다.
 
 #### 3.3.2 L2 리액티브 Redis 캐시
 
 L1 캐시 미스 시 호출되는 L2 캐시는 Spring Data Redis Reactive를 기반으로 완전 논블로킹 방식으로 동작한다. Redis I/O 대기 시간 동안 이벤트 루프 스레드는 블로킹되지 않고 즉시 다른 채널의 패킷 처리를 위해 반환된다. Redis 응답이 수신되면 리액티브 스트림 인터페이스 [9]의 배압 프로토콜에 따라 다운스트림 파이프라인 처리가 재개된다.
 
+현 구현에서 정책 결정은 Redis에 사전 등록된 복합 키별 허용/거부 레코드 조회에 기반한다. 해당 키가 Redis에 등록되지 않은 경우, 정적으로 구성된 허용 목록(`policy-allowlist`)과의 대조를 통해 기본 거부(Deny-by-Default) 정책이 적용된다. 동적 속성 기반 정책 평가(ABAC) 엔진과의 통합은 향후 확장 과제로 남긴다.
+
 #### 3.3.3 RevocationService 독립 무효화 캐시
 
-사용자 토큰 탈취 등에 신속하게 대응하기 위해, `RevocationService`는 인가 정책과 분리된 독립적인 O(1) 무효화 캐시를 운용한다. 이 서비스는 `policy-invalidation`과 별개로 운영되는 `token:revocation` Redis Pub/Sub 채널을 구독한다. 무효화된 SPIFFE ID 또는 JWT JTI(토큰 고유 식별자)가 수신되면, TTL 24시간, 최대 100,000개 엔트리로 구성된 전용 Caffeine 캐시에 즉시 등록된다. 이 TTL은 발급된 토큰의 최대 생존 시간과 겹치도록(overlap) 설정되어, 만료되기 전까지의 블랙리스트 유지를 보장한다. 인가 평가 이전에 수행되는 이중 ID(SPIFFE ID 또는 JTI) 검증을 통해, 취소된 신원은 정책 평가 단계에 진입하기 전에 즉시 차단된다.
-
+사용자 토큰 탈취 등에 신속하게 대응하기 위해, `RevocationService`는 인가 정책과 분리된 독립적인 O(1) 무효화 캐시를 운용한다. 이 서비스는 `policy-invalidation`과 별개로 운영되는 `token:revocation` Redis Pub/Sub 채널을 구독한다. 무효화된 SPIFFE ID 또는 JWT JTI(토큰 고유 식별자)가 수신되면, TTL 24시간, 최대 100,000개 엔트리로 구성된 전용 Caffeine 캐시에 즉시 등록된다. 이 TTL은 발급된 토큰의 최대 생존 시간과 겹치도록(overlap) 설정되어, 만료되기 전까지의 블랙리스트 유지를 보장한다. 인가 평가 이전에 수행되는 이중 ID(SPIFFE ID 또는 JTI) 검증을 통해, 취소된 신원은 정책 평가 단계에 진입하기 전에 즉시 차단된다. `token:revocation`과 `policy-invalidation` 채널의 독립적 운용은 두 무효화 관심사 간의 결함 격리(Fault Isolation)를 제공하며, 어느 한 채널에서 오류가 발생하더라도 나머지 채널의 처리 흐름에 영향을 미치지 않는다.
 ### 3.4 단일 비행(Single-Flight) 패턴
 
 #### 3.4.1 캐시 스탬피드 제어
@@ -177,9 +180,13 @@ L1 캐시 미스 시 호출되는 L2 캐시는 Spring Data Redis Reactive를 기
 
 ### 3.5 내부 토큰 전환 및 오프힙 메모리 안전성
 
-인가가 승인된 요청에 대해 `DownstreamTokenMinter`는 HMAC-SHA256으로 서명된 60초 만료의 내부 전용 토큰을 발급한다. 내부망에서의 토큰 재전송(Replay) 공격을 방지하기 위해, 발급되는 토큰에는 고유 식별자(JTI)를 부여하고 대상 서비스(`aud`)를 명시적으로 바인딩한다. 게이트웨이는 원본 클라이언트 토큰을 헤더에서 제거하고 `X-Internal-Identity` 헤더로 변환된 토큰을 주입한다(RFC 9110 [14]). 이를 통해 내부 마이크로서비스는 연산 비용이 높은 비대칭 키 검증 대신 경량 대칭키 검증만을 수행할 수 있다. 서명 키는 `AtomicReference<ActiveKey>`로 관리되며 JWS `kid` 헤더를 통해 무중단 키 회전(Key Rotation)을 지원한다.
+인가가 승인된 요청에 대해 `DownstreamTokenMinter`는 HMAC-SHA256으로 서명된 60초 만료의 내부 전용 토큰을 발급한다. 내부망에서의 토큰 재전송(Replay) 공격을 방지하기 위해, 발급되는 토큰에는 고유 식별자(JTI)를 부여하고 대상 서비스(`aud`)를 명시적으로 바인딩한다. 게이트웨이는 원본 클라이언트 토큰을 헤더에서 제거하고 `X-Internal-Identity` 헤더로 변환된 토큰을 주입한다(RFC 9110 [14]). 이를 통해 내부 마이크로서비스는 연산 비용이 높은 비대칭 키 검증 대신 경량 대칭키 검증만을 수행할 수 있다. 서명 키는 `AtomicReference<ActiveKey>`로 관리되며, 런타임 중 `rotateSecret()` 메서드 호출을 통해 무중단 키 교체가 가능하도록 설계되었다. 발급된 내부 토큰은 JWS `kid` 헤더를 포함하므로 수신 측이 키 버전을 식별할 수 있으며, 외부 트리거(관리 API 또는 이벤트 기반 회전)의 구현은 향후 과제로 남긴다.
 
-아울러 Netty의 `DirectByteBuf`를 사용하는 오프힙 환경에서 에러 응답 버퍼 할당 시 발생하는 메모리 누수를 방지하기 위해, 오류 응답 경로(Error Response Path)에 한하여 데이터 버퍼의 생성 시점을 `Mono.fromCallable()`을 통해 실제 HTTP 전송 구독 시점까지 지연(Deferred Allocation)시키는 방식을 적용하였다.
+아울러 오류 응답 경로(Error Response Path)에 한하여, 응답이 이미 커밋된 상태에서의 중복 버퍼 할당을 방지하기 위해 버퍼 생성 시점을 `Mono.fromCallable()`을 통해 실제 HTTP 전송 구독 시점까지 지연(Deferred Allocation)시키는 방식을 적용하였다.
+
+`DownstreamTokenMinter.mintInternalToken()`은 서명 키 상태가 미초기화된 경우 명시적 예외를 발생시켜 인가를 거부하도록 구현하였다. 이는 예외 상황에서 기본 허용(Fail-Open)이 아닌 기본 거부(Fail-Secure) 원칙을 코드 수준에서 관철한 설계이다.
+
+시스템의 내부 상태는 Micrometer 계측 인프라를 통해 실시간으로 노출된다. L1 캐시 적중/미스(`aegis.policy.cache.l1.hits/misses`), L2 Redis 조회 지연(`aegis.policy.cache.l2.latency`), 인증 거부 사유별 카운터(`aegis.security.auth.rejections`), 단일 비행 중복 제거 건수(`aegis.policy.singleflight.deduplicated`) 등의 지표가 Prometheus 엔드포인트 및 Server-Sent Events(SSE) 기반 실시간 스트림으로 제공된다. 이 관측성 인프라는 계층별 캐시 동작의 정량적 분리 측정을 지원하며, 본 논문의 소거 연구를 위한 계측 기반으로 활용되었다.
 
 ---
 
@@ -190,6 +197,8 @@ L1 캐시 미스 시 호출되는 L2 캐시는 Spring Data Redis Reactive를 기
 ### 4.1 실험 환경
 
 실험 환경의 구성 요소를 표 2에 요약한다. 모든 구성 요소는 동일 호스트 내에서 도커 컨테이너 및 네이티브 프로세스로 구동되어 단일 노드 자원을 공유한다.
+
+이벤트 루프 내 블로킹 호출 부재를 지속적으로 검증하기 위해 BlockHound 라이브러리를 테스트 스위트 전반에 적용하였다. 모든 단위 테스트 및 통합 테스트는 BlockHound를 설치한 `BaseBlockHoundTest`를 기반 클래스로 상속하며, 이벤트 루프 스레드에서 블로킹 I/O가 감지되는 즉시 예외로 처리된다. 또한 k6 부하 생성기는 자체 서명 인증서 환경에서의 실험 편의를 위해 서버 인증서 체인 검증을 생략(`insecureSkipTLSVerify`)하도록 설정하였다. 이는 실험 환경에 한정된 설정이며, 운영 환경에서는 별도의 CA 신뢰 체계 구성이 요구된다.
 
 **표 2.** 실험 환경 구성 요약
 
@@ -267,7 +276,7 @@ L1 캐시 미스 시 호출되는 L2 캐시는 Spring Data Redis Reactive를 기
 
 `PolicyEngineStampedeTest`를 통해 동일 키에 대한 100개의 동시 요청을 주입한 결과, 실제 L2 Redis 네트워크 호출은 정확히 1회만 발생하였으며 나머지 99개 요청은 첫 번째 비동기 스트림 결과를 공유받아 처리되었다. 이는 Micrometer 메트릭(`aegis.policy.singleflight.deduplicated = 99`)을 통해 정량적으로 확인되었다.
 
-아울러 Testcontainers를 이용한 `CacheCoherencyIntegrationTest`에서 Redis Pub/Sub을 통한 무효화 메시지 발행 시 100 ms 이내에 로컬 L1 캐시 엔트리가 축출되었으며, 이를 통해 보안 정책 변경에 대한 실시간 일관성이 유지됨을 확인하였다.
+아울러 Testcontainers를 이용한 `CacheCoherencyIntegrationTest`에서 Redis Pub/Sub을 통한 무효화 메시지 발행 시, 단일 인스턴스 루프백 네트워크 환경 기준으로 100 ms 이내에 로컬 L1 캐시 엔트리가 축출됨을 확인하였다. 이는 단일 노드 환경에서의 결과이며, 다중 레플리카 분산 환경에서의 전파 지연 및 일관성 보장 수준은 §5.2에서 논의한다.
 
 ---
 
@@ -283,7 +292,7 @@ L1 캐시 미스 시 호출되는 L2 캐시는 Spring Data Redis Reactive를 기
 
 ### 5.3 분산 환경에서의 캐시 일관성 확장
 
-본 연구에서 수행한 L1 캐시 일관성 검증은 단일 인스턴스 수준에 국한되었다. 다중 게이트웨이 레플리카 환경에서는 Redis Pub/Sub 메시지 유실 위험이나 네트워크 파티션 발생 시 인스턴스 간 인가 정보 불일치가 초래될 수 있다. 향후 Redis Sentinel 또는 Redis Cluster 기반의 신뢰성 있는 메시징과 분산 서킷 브레이커(Circuit Breaker)를 결합하여 내결함성을 강화하는 방안에 대한 연구가 필요하다.
+본 연구에서 수행한 L1 캐시 일관성 검증은 단일 인스턴스 수준에 국한되었다. 다중 게이트웨이 레플리카 환경에서는 Redis Pub/Sub 메시지 유실 위험이나 네트워크 파티션 발생 시 인스턴스 간 인가 정보 불일치가 초래될 수 있다. 향후 Redis Sentinel 또는 Redis Cluster 기반의 신뢰성 있는 메시징과 분산 서킷 브레이커(Circuit Breaker)를 결합하여 내결함성을 강화하는 방안에 대한 연구가 필요하다. 또한 취소 캐시(`RevocationService`)의 TTL은 현재 24시간으로 고정되어 있어, 유효 기간이 이를 초과하는 장기 토큰이 운용되는 환경에서는 취소 항목이 조기 만료될 수 있다. 향후 취소 캐시의 TTL을 토큰의 `exp` 클레임에 연동하거나, Redis 영속 저장소를 기반으로 블랙리스트를 관리하는 방안의 검토가 필요하다.
 
 ### 5.4 커널 레벨 패킷 가속(eBPF) 연계
 
