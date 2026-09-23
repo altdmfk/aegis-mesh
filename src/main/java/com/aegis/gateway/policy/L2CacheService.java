@@ -10,6 +10,7 @@ import java.time.Duration;
 @Service
 public class L2CacheService {
 
+    private static final org.springframework.util.AntPathMatcher PATH_MATCHER = new org.springframework.util.AntPathMatcher(":");
     private final ReactiveRedisTemplate<String, String> redisTemplate;
     private final java.util.Set<String> policyAllowlist;
 
@@ -34,7 +35,7 @@ public class L2CacheService {
                 })
                 .switchIfEmpty(Mono.defer(() -> {
                     boolean allowed = policyAllowlist.stream().anyMatch(pattern -> 
-                        new org.springframework.util.AntPathMatcher().match(pattern, rawKeyStr)
+                        PATH_MATCHER.match(pattern, rawKeyStr)
                     );
                     if (allowed) {
                         return Mono.just(PolicyDecision.ALLOW);

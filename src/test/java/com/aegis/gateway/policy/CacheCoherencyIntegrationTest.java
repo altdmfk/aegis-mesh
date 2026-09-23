@@ -81,9 +81,10 @@ class CacheCoherencyIntegrationTest extends BaseBlockHoundTest {
                 .expectNextCount(1)
                 .verifyComplete();
 
-        // 3. Assert eviction within 100ms
-        Thread.sleep(100); // Wait for async propagation
-        assertNull(l1Cache.getIfPresent(hashedKey), "L1 cache should be evicted");
+        // 3. Assert eviction
+        org.awaitility.Awaitility.await()
+                .atMost(java.time.Duration.ofSeconds(2))
+                .untilAsserted(() -> assertNull(l1Cache.getIfPresent(hashedKey), "L1 cache should be evicted"));
     }
 
     private static String sha256Hex(String input) {

@@ -32,9 +32,11 @@ public class PolicyInvalidationListener {
                         }
                     }
                 })
+                .doOnError(e -> org.slf4j.LoggerFactory.getLogger(PolicyInvalidationListener.class).warn("Redis connection dropped, preparing to reconnect..."))
+                .retryWhen(reactor.util.retry.Retry.backoff(Long.MAX_VALUE, java.time.Duration.ofSeconds(1)).maxBackoff(java.time.Duration.ofSeconds(30)))
                 .subscribe(
                         null,
-                        error -> org.slf4j.LoggerFactory.getLogger(PolicyInvalidationListener.class).error("Policy invalidation subscription died", error),
+                        error -> org.slf4j.LoggerFactory.getLogger(PolicyInvalidationListener.class).error("Policy invalidation subscription died permanently", error),
                         () -> org.slf4j.LoggerFactory.getLogger(PolicyInvalidationListener.class).warn("Policy invalidation subscription completed unexpectedly")
                 );
     }

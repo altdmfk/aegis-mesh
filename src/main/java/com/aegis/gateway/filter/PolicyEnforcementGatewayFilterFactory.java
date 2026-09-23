@@ -48,9 +48,9 @@ public class PolicyEnforcementGatewayFilterFactory extends AbstractGatewayFilter
             if (context.serviceIdentity() instanceof SpiffeIdentity(var id, var ns, var sa)) {
                 spiffeId = id;
             } else if (context.serviceIdentity() == null) {
-                throw new IllegalStateException("Service Identity missing");
+                return Mono.error(new IllegalStateException("Service Identity missing"));
             } else {
-                throw new IllegalStateException("Unexpected identity type: " + context.serviceIdentity().getClass());
+                return Mono.error(new IllegalStateException("Unexpected identity type: " + context.serviceIdentity().getClass()));
             }
 
             final String userId;
@@ -59,9 +59,9 @@ public class PolicyEnforcementGatewayFilterFactory extends AbstractGatewayFilter
                 userId = sub;
                 jti = j;
             } else if (context.userIdentity() == null) {
-                throw new IllegalStateException("User Identity missing");
+                return Mono.error(new IllegalStateException("User Identity missing"));
             } else {
-                throw new IllegalStateException("Unexpected user identity type: " + context.userIdentity().getClass());
+                return Mono.error(new IllegalStateException("Unexpected user identity type: " + context.userIdentity().getClass()));
             }
 
             if (revocationService.isRevoked(spiffeId) || (jti != null && revocationService.isRevoked(jti))) {

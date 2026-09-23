@@ -34,9 +34,11 @@ public class DashboardSseController {
     private MetricDto gatherCurrentMetrics() {
         double incoming = 0;
         try {
-            incoming = registry.counter("http.server.requests").measure().iterator().next().getValue();
+            incoming = registry.find("http.server.requests").timers().stream()
+                    .mapToDouble(io.micrometer.core.instrument.Timer::count)
+                    .sum();
         } catch (Exception e) {
-            // counter may not exist initially
+            // timer may not exist initially
         }
         
         double coalesced = registry.counter("aegis.policy.singleflight.deduplicated").count();

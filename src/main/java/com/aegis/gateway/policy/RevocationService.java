@@ -33,9 +33,11 @@ public class RevocationService {
                         revokedCache.put(revokedId, Boolean.TRUE);
                     }
                 })
+                .doOnError(e -> org.slf4j.LoggerFactory.getLogger(RevocationService.class).warn("Redis connection dropped, preparing to reconnect..."))
+                .retryWhen(reactor.util.retry.Retry.backoff(Long.MAX_VALUE, java.time.Duration.ofSeconds(1)).maxBackoff(java.time.Duration.ofSeconds(30)))
                 .subscribe(
                         null,
-                        error -> org.slf4j.LoggerFactory.getLogger(RevocationService.class).error("Revocation subscription died", error),
+                        error -> org.slf4j.LoggerFactory.getLogger(RevocationService.class).error("Revocation subscription died permanently", error),
                         () -> org.slf4j.LoggerFactory.getLogger(RevocationService.class).warn("Revocation subscription completed unexpectedly")
                 );
     }

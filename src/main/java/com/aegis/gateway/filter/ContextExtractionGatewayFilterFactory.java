@@ -81,12 +81,13 @@ public class ContextExtractionGatewayFilterFactory extends AbstractGatewayFilter
                     
                     // 3. Strict claims validation (exp, sub, iss, aud)
                     java.util.Date exp = signedJWT.getJWTClaimsSet().getExpirationTime();
-                    if (exp != null) {
-                        long now = System.currentTimeMillis();
-                        long maxClockSkewMs = 60_000L;
-                        if (now > exp.getTime() + maxClockSkewMs) {
-                            return "expired_jwt";
-                        }
+                    if (exp == null) {
+                        return "invalid_jwt";
+                    }
+                    long now = System.currentTimeMillis();
+                    long maxClockSkewMs = 60_000L;
+                    if (now > exp.getTime() + maxClockSkewMs) {
+                        return "expired_jwt";
                     }
 
                     String sub = signedJWT.getJWTClaimsSet().getSubject();
@@ -168,7 +169,7 @@ public class ContextExtractionGatewayFilterFactory extends AbstractGatewayFilter
                             if (matcher.matches()) {
                                 return new SpiffeIdentity(uri, matcher.group(1), matcher.group(2));
                             }
-                            return null;
+                            continue;
                         }
                     }
                 }
